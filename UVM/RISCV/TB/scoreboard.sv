@@ -109,19 +109,15 @@ class scoreboard extends uvm_scoreboard ;
     ral_model_h.dmem.read(status , fetch_seq.DataAdrM[9:2] , mem_data, UVM_BACKDOOR); // Read memory for current instruction   
     branch_result = srcA - srcB ;
      
-    
      // Branch Hazard
     dec_seq.beqflush = (mem_seq.beqflush || ex_seq.beqflush || ex_seq.lwstall) ? 0 : ((mem_seq.inst_type == BEQ) && (!branch_result) || (mem_seq.inst_type == BNE) && (branch_result) || (mem_seq.inst_type == BGE) && (!branch_result[31]) || (mem_seq.inst_type == BLT) && (branch_result[31]) || (mem_seq.inst_type == JAL) || (mem_seq.inst_type == JALR)) ;
     `uvm_info("BEQFLUSH_CHECK", $sformatf("beqflush: %b", dec_seq.beqflush), UVM_HIGH)
     `uvm_info("OPERANDS_VALUES", $sformatf("srcA: %d, srcB: %d", srcA, srcB), UVM_HIGH)
 
-     
     // LW stall Hazard 
     fetch_seq.lwstall = (dec_seq.beqflush || ex_seq.beqflush || dec_seq.lwstall) ? 0 : (ex_seq.InstrF[6:0] == lw) && ((ex_seq.InstrF[11:7] == dec_seq.InstrF[19:15]) || (ex_seq.InstrF[11:7] == dec_seq.InstrF[24:20])) ;
     `uvm_info("LWSTALL_CHECK", $sformatf("lwstall: %b", fetch_seq.lwstall), UVM_HIGH)
  
-    
-    
     case (mem_seq.inst_type) // Instruction Type 
        
       LW : begin 
@@ -304,8 +300,6 @@ class scoreboard extends uvm_scoreboard ;
     endcase  // Instruction type  
   endtask // predict 
   
-    
-  
   function void compare (seq_item a_seq , p_seq) ;
     bit some_pass , reg_pass , mem_pass , all_pass ; 
      
@@ -321,15 +315,12 @@ class scoreboard extends uvm_scoreboard ;
      regfile_comp = ((mem_seq.inst_type == JAL) || (mem_seq.inst_type == JALR)) ? jal_rd - 4 : jal_rd ; 
     else 
      regfile_comp = dec_seq.DataAdrM ;
-    
-      
-      
+     
     mem_pass = (mem_data == fetch_seq.WriteDataM) ;  
     reg_pass = (reg_data == regfile_comp) ;    
     some_pass = (a_seq.DataAdrM   === p_seq.DataAdrM)  &&
                 (a_seq.MemWriteM  === p_seq.MemWriteM) &&
                 (a_seq.PCF        === p_seq.PCF) ; 
-      
       
     // Memory only 
     if ((mem_seq.InstrF[6:0] == sw) && ((wr_seq.InstrF[6:0] == sw) || (wr_seq.InstrF[6:0] == brnch) || wr_seq.beqflush) && !ex_seq.beqflush && !mem_seq.beqflush) begin 
@@ -351,13 +342,11 @@ class scoreboard extends uvm_scoreboard ;
       `uvm_info("REGFILE_CHECK", $sformatf("Data read from regfile: %h, Expected data: %h", reg_data, regfile_comp), UVM_HIGH)
     end
      
-     
     if (all_pass)
       `uvm_info(get_type_name(),"SUCCESSFUL OPERATION ", UVM_HIGH)
     else  
       `uvm_error(get_type_name(),"FAILED OPEARTION ")
 
-     
     //---------------------------------------- Debug -----------------------------------\\   
          // Display Results 
 //       $display("Forward_A : %h   ,   Forward_B : %h",forward_A , forward_B) ;
@@ -374,7 +363,5 @@ class scoreboard extends uvm_scoreboard ;
 //       $display("") ;
     end 
   endfunction 
-  
-
-  
+    
 endclass : scoreboard
