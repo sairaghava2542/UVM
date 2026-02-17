@@ -9,13 +9,9 @@ class coverage extends uvm_subscriber #(seq_item) ;
    logic [4:0] rs1, rs2, rd ;
    logic       MemWrite ;
    logic       reset ;
-  
-  
   // Handles declaration 
   seq_item cov_item ; // Copy the recieved item from monitor here to avoid override elsewhere 
-  
-  
-  
+
   // Covergroups 
   covergroup Instruction_cg ; // To Cover All Instructions and crosses among them
   Instructions_cp :       coverpoint instruction { 
@@ -80,9 +76,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
                          }
 
   endgroup : Instruction_cg 
-
-
-  
   covergroup Reset_cg ;
     Reset_Transition_cp : coverpoint reset { 
                           bins OFF_ON = (0 => 1) ;
@@ -120,15 +113,10 @@ class coverage extends uvm_subscriber #(seq_item) ;
      Memory_cg = new() ;
   endfunction : new
   
-  
-  
  // Build Phase 
   function void build_phase(uvm_phase phase);  
     super.build_phase(phase);
   endfunction
-  
-  
-  
   function void write (seq_item  t);
      cov_item = seq_item::type_id::create("sb_item"); 
      cov_item.copy(t) ;   // To prevent unwanted change
