@@ -37,7 +37,6 @@ class seq_item extends uvm_sequence_item ;
      `uvm_field_enum(instr_type , inst_type , UVM_DEFAULT) 
      `uvm_object_utils_end
   
-  
   // Basic Constraints 
   constraint opcode_range {InstrF[6:0] inside {lw, imm,
                                                auipc, sw, 
@@ -71,7 +70,6 @@ class seq_item extends uvm_sequence_item ;
 					
       ((InstrF[6:0] != sw) && (InstrF[6:0] != brnch)) -> (InstrF[11:7] != 0) ; // rd is not equal to 0                    
                              } ;
-  
   constraint reset_dist {reset dist{1:=1 , 0:=100000}; };
   
  //========================= Item Functions ===========================\\
@@ -87,8 +85,6 @@ class seq_item extends uvm_sequence_item ;
         beqflush   = 1'b0;
         inst_type  = RESET;
       endfunction
-  
-  
  // Get Instruction type function  
       function Get_type ;
         case (InstrF[6:0])  
@@ -145,7 +141,6 @@ class seq_item extends uvm_sequence_item ;
         endcase 
 
       endfunction
-  
   
   // Extend Immediate function 
   function [31:0] Extend ;
