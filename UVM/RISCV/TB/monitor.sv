@@ -1,7 +1,6 @@
 class monitor extends uvm_monitor ;
   `uvm_component_utils(monitor)
-
-
+	
   virtual intf monitor_intf;
   uvm_analysis_port #(seq_item) monitor_ap;
   seq_item monitor_item;
@@ -10,17 +9,13 @@ class monitor extends uvm_monitor ;
   function new(string name = "monitor" ,uvm_component parent);
     super.new(name,parent);
   endfunction :new
-
-
   // Build Phase 
   function void build_phase(uvm_phase phase);
     if(!uvm_config_db #(virtual intf)::get(this, "*","risc_intf", monitor_intf))
       `uvm_fatal("MONITOR", "Failed to get Interface");
     
-    
     monitor_ap  = new("monitor_ap",this);
   endfunction : build_phase
-
 
   // Run Phase 
   task  run_phase(uvm_phase phase);
@@ -42,6 +37,4 @@ class monitor extends uvm_monitor ;
     end 
     
   endtask : run_phase  
-
-
 endclass 
