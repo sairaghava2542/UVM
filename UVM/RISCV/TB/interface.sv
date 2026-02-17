@@ -11,5 +11,4 @@ interface intf (input logic clk) ;
   logic        MemWriteM  ; 
   instr_type   inst_type  ;
   
-
 endinterface 
