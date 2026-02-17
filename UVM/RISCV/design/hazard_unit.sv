@@ -46,8 +46,3 @@ logic lwStall;
 	assign FlushD = PCSrcE;
 
 endmodule
-
-
-
-    
-
