@@ -19,7 +19,6 @@ class rand_seq extends uvm_sequence #(seq_item);
   
 endclass: rand_seq
 
-
 //--------------------------------------------------------------------------------
 
 class reset_seq extends uvm_sequence #(seq_item);
@@ -46,7 +45,6 @@ class reset_seq extends uvm_sequence #(seq_item);
 endclass: reset_seq
 
 //----------------------------------------------------------------------------------
-
 
 class lw_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(lw_seq)
@@ -151,7 +149,6 @@ endclass: branch_seq
 
 //----------------------------------------------------------------------------------
 
-
 class addi_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(addi_seq)
   
@@ -207,7 +204,6 @@ endclass: slli_seq
 
 //----------------------------------------------------------------------------------
 
-
 class slti_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(slti_seq)
   
@@ -259,7 +255,6 @@ class xori_seq extends uvm_sequence #(seq_item);
 endclass: xori_seq
 
 //----------------------------------------------------------------------------------
-
 
 class sw_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(sw_seq)
@@ -337,12 +332,10 @@ endclass: jal_seq
 
 //---------------------------------------------------------------------------------
 
-
 class srli_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(srli_seq)
   
   seq_item srli_item ;
-  
   function  new(string name = "srli_seq");
     super.new(name); 
   endfunction: new
@@ -391,7 +384,6 @@ class srai_seq extends uvm_sequence #(seq_item);
 endclass: srai_seq
 
 //---------------------------------------------------------------------------------
-
 
 class ori_seq extends uvm_sequence #(seq_item);
   `uvm_object_utils(ori_seq)
@@ -688,8 +680,6 @@ class and_seq extends uvm_sequence #(seq_item);
   endtask
   
 endclass: and_seq
-
-
 //---------------------------------------------------------------------------------
 
 class auipc_seq extends uvm_sequence #(seq_item);
@@ -714,7 +704,6 @@ class auipc_seq extends uvm_sequence #(seq_item);
   endtask
   
 endclass: auipc_seq
-
 
 //---------------------------------------------------------------------------------
 
@@ -844,5 +833,3 @@ class bge_seq extends uvm_sequence #(seq_item);
        finish_item(bge_item);	 
   endtask  
 endclass: bge_seq
-
-
