@@ -1,8 +1,6 @@
 class coverage extends uvm_subscriber #(seq_item) ;
   `uvm_component_utils(coverage)
-  
   uvm_analysis_imp #(seq_item, coverage) cov_mon_port; // Connect Monitor to scoreboard
-
   // Signals Declaration
    instr_type instruction ;
    logic [31:0] PC, DataAdr, WriteData, ReadData ;
@@ -11,7 +9,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
    logic       reset ;
   // Handles declaration 
   seq_item cov_item ; // Copy the recieved item from monitor here to avoid override elsewhere 
-
   // Covergroups 
   covergroup Instruction_cg ; // To Cover All Instructions and crosses among them
   Instructions_cp :       coverpoint instruction { 
@@ -24,7 +21,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
                           bins  Reset[] = {RESET} ;
                           illegal_bins unknow = {UNKNOWN} ; 
                           } 
- 
   Imm_Transitions_cp :    coverpoint instruction {
                           bins I_R[]     = (SLTI, SRLI => SLL, SLT) ;
                           bins I_B[]     = (SLTI => BEQ, BNE, BLT, BGE) ;
@@ -36,7 +32,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
                           bins I_J_J[]   = (ADDI, SLTI => JAL[*2]) ;
                           bins I_JR_JR[] = (ADDI, SLTI => JALR[*2]) ;
                           }
-
   Branch_Transitions_cp : coverpoint instruction {                      
                           bins B_R[]     = (BEQ, BNE, BLT, BGE => ADD, SLT, SRA) ;
                           bins B_B[]     = (BEQ, BNE, BLT, BGE => BEQ, BNE, BLT, BGE) ;
@@ -48,7 +43,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
                           bins B_LW[]    = (BEQ, BNE, BLT, BGE => LW) ;
                           bins B_LW_LW[] = (BEQ, BNE, BLT, BGE => LW[*2]) ;                         
                           }
-
   Jump_Transitions_cp :   coverpoint instruction {                     
                           bins J_R[]     = (JAL, JALR => SUB, SLT, SRA) ;
                           bins J_J[]     = (JAL, JALR => JAL,JALR) ;
@@ -59,7 +53,6 @@ class coverage extends uvm_subscriber #(seq_item) ;
                           bins J_LW[]    = (JAL, JALR => LW) ;
                           bins J_LW_LW[] = (JAL  => LW[*2]) ;
                           }
-
   SW_Transitions_cp :    coverpoint instruction {
                          bins SW_B[]   = (SW => BEQ, BNE, BLT, BGE) ;
                          bins SW_J[]   = (SW => JAL, JALR) ;                      
@@ -67,14 +60,12 @@ class coverage extends uvm_subscriber #(seq_item) ;
                          bins SW_LW[] = (SW => LW) ;
                          bins SW_I[]  = (SW => SLTI) ;
                          }
-
   LW_Transitions_cp :    coverpoint instruction {
                          bins LW_B[]  = (LW => BEQ, BNE, BLT, BGE) ;
                          bins LW_J[]  = (LW => JAL, JALR) ;
                          bins LW_LW[] = (LW => LW) ;
                          bins LW_SW[] = (LW => SW) ;
                          }
-
   endgroup : Instruction_cg 
   covergroup Reset_cg ;
     Reset_Transition_cp : coverpoint reset { 
@@ -82,7 +73,7 @@ class coverage extends uvm_subscriber #(seq_item) ;
                           bins ON_OFF = (1 => 0) ; 
                           }
   endgroup : Reset_cg
-
+  
   covergroup Registers_cg ;
     Rs1_cp : coverpoint rs1 {bins Rs1[] = {[0:31]};}
     Rs2_cp : coverpoint rs2 {bins Rs2[] = {[0:31]};}
@@ -121,8 +112,7 @@ class coverage extends uvm_subscriber #(seq_item) ;
      cov_item = seq_item::type_id::create("sb_item"); 
      cov_item.copy(t) ;   // To prevent unwanted change
      Inst_decode(cov_item) ;
-    
-       
+
     // Sampling covergroups 
     Instruction_cg.sample() ; 
     Reset_cg.sample() ;
@@ -167,6 +157,5 @@ class coverage extends uvm_subscriber #(seq_item) ;
             end
     endcase
   endfunction
-  
-  
+    
 endclass : coverage
