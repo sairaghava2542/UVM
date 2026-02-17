@@ -1,12 +1,10 @@
 `timescale 1ns/1ns
 `include "uvm_macros.svh"
 
-
   module tb_top;
     
    import uvm_pkg::*;
    import risc_pkg::* ;
-   
    
    bit clk ;
     
@@ -30,12 +28,10 @@
            .MemWriteM(risc_intf.MemWriteM)
 		  );
   
-  
   // Clock Generation
   initial begin 
     forever  #5 clk = ~clk;
   end
-  
   
   initial begin 
     uvm_config_db #(virtual intf)::set(null,"*","risc_intf",risc_intf);
@@ -51,6 +47,4 @@
     $dumpfile("dump.vcd");
     $dumpvars(0);
   end
-  
-
 endmodule 
