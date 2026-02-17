@@ -8,7 +8,6 @@ module regfile(input logic clk,
 	
 	// write on falling edge
 	// read on rising edge 
-	
 	// r0 hardwired to 0
 	
   assign rd1 = (a1 != 0 ) ? register[a1] : 0;
