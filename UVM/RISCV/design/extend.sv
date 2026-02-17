@@ -2,7 +2,6 @@ module extend (input logic [31:7] instr,
 			input logic [2:0] immsrc, 
 			output logic [31:0] immext);
 
-
 	always_comb
 		case(immsrc)
 		// I−type
