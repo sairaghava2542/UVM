@@ -17,7 +17,6 @@ module datapath(input logic clk, reset,
         output logic [4:0] RdE, RdM, RdW,
 		input logic StallD, StallF, FlushD, FlushE);
 
-
 	logic [31:0] PCD, PCE, ALUResultE, ALUResultW, ReadDataW;
 	logic [31:0] PCNextF, PCPlus4F, PCPlus4D, PCPlus4E, PCPlus4M, PCPlus4W, PCTargetE, BranJumpTargetE;
 	logic [31:0] WriteDataE;
@@ -28,7 +27,6 @@ module datapath(input logic clk, reset,
 	
 	logic [4:0] RdD; // destination register address
 
-	
 	// Fetch Stage
 	
     mux2 jal_r(PCTargetE, ALUResultE, PCJalSrcM, BranJumpTargetE);
@@ -36,7 +34,6 @@ module datapath(input logic clk, reset,
 	flopenr IF(clk, reset, ~StallF, PCNextF, PCF);
 	adder pcadd4(PCF, 32'd4, PCPlus4F);
 	
-		
 	// Instruction Fetch - Decode Pipeline Register	
 	
     IF_ID pipreg0 (clk, reset, FlushD, ~StallD, InstrF, PCF, PCPlus4F, InstrD, PCD, PCPlus4D);
@@ -56,12 +53,9 @@ module datapath(input logic clk, reset,
 	adder pcaddbranch(PCE, ImmExtE, PCTargetE); // Next PC for jump and branch instructions
 	alu alu(SrcAE, SrcBE, ALUControlE, ALUResultE, ZeroE, SignE);
 	
-	
-		
 	// Execute - Memory Access Pipeline Register
     IEx_IMem pipreg2 (clk, reset, PCJalSrcE, ALUResultE, WriteDataE, RdE, PCPlus4E, ALUResultM, WriteDataM, RdM, PCPlus4M, PCJalSrcM);
-	
-		
+			
 	// Memory - Register Write Back Stage
 	IMem_IW pipreg3 (clk, reset, ALUResultM, ReadDataM, RdM, PCPlus4M, ALUResultW, ReadDataW, RdW, PCPlus4W);
 	mux3 resultmux( ALUResultW, ReadDataW, PCPlus4W, ResultSrcW, ResultW);
