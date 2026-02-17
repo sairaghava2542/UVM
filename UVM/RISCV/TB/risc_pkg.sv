@@ -9,8 +9,7 @@ package risc_pkg;
 	              brnch = 7'b1100011 ,
 		      jalr  = 7'b1100111 , 
 		      jal   = 7'b1101111 ;
- 
-					  
+ 				  
     localparam [2:0] add = 3'b000 ,
 	             sub = 3'b000 ,
                      sll = 3'b001 ,
@@ -21,13 +20,11 @@ package risc_pkg;
                      Or  = 3'b110 ,
                      And = 3'b111 ;
 
-
      localparam [2:0] beq = 3'b000 , 
                       bne = 3'b001 ,
                       blt = 3'b100 ,
                       bge = 3'b101 ;
-
-
+	
      typedef enum logic [5:0] {LW,SW,
                                ADDI,SLLI,SLTI,XORI,SRLI,SRAI,ORI,ANDI,
                                AUIPC,LUI,
@@ -35,6 +32,4 @@ package risc_pkg;
                                BEQ,BNE,BLT,BGE,
                                JALR,JAL,
                                RESET, UNKNOWN} instr_type;
-
-
 endpackage 
