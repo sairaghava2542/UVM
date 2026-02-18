@@ -1,19 +1,8 @@
-/***************************************************************************************************************************
-*
 *    File Name:  Counter.sv
 *      Version:  1.0
 *        Model:  Internal Delay counter
-*
 * Dependencies:  DUT.sv.sv
-*				 
-*
 *  Description:  Acts as a down counter to generate the delay for obeying the timing specifications.
-*
-* Rev   Author   Date        Changes
-* ---------------------------------------------------------------------------------------
-* 0.1    SA      02/28/18    FSM design
-* 0.42  JMK      08/25/06    Created internal clock using ck and ck_n.
-
 *****************************************************************************************************************************/
 
 module counter (                           //counter Module
@@ -35,9 +24,6 @@ module counter (                           //counter Module
 	end
 
 	assign done = (count==max_count-1);    //assigning the done =1 when counter reaches it's maximum value.
-
-  ------------------------------------------------------------------------------------------------------------------------------------------------
-  
 /***************************************************************************************************************************
 *
 *    File Name:  DUT.sv
@@ -59,8 +45,6 @@ module counter (                           //counter Module
 
 //===================================== PACKAGE IMPORT========================================================================
 import DDR3MemPkg::* ;
-
-
 //===================================== MODULE DECLARATION ===================================================================
 module DDR3_Controller (
 	input logic          i_cpu_ck   ,												// Main system clock 
@@ -68,8 +52,6 @@ module DDR3_Controller (
 	cpu_if.dut_port      cont_if_cpu,												// Interface between CPU-CONTROLLER
 	mem_if.dut_port      cont_if_mem												// Interface between MEM-CONTROLLER
 );
-
-
 //===================================== LOCAL VARIABLES=======================================================================
 			
     bit    [31:0] max_count                     ;   // variable to assign max count
@@ -92,12 +74,8 @@ module DDR3_Controller (
 	logic  [63:0] s_cpu_rd_data                 ;	// internal variable for CPU read operation 
 	logic  [63:0] cpu_rd_data                   ;	
 	logic         s_cpu_rd_data_valid           ;	// Valid signal for CPU read data
-	logic         cpu_rd_data_valid             ;
-
-	
+	logic         cpu_rd_data_valid             ;	
 	States        state                         ;   
-
-
 //============================================================ INSTANTIATIONS============================================================================
 // Instantiation of internal counter
 	counter i_counter (.clock(i_cpu_ck), .reset(cont_if_cpu.i_cpu_reset), .en(en), .max_count(max_count), .done(timer_intr), .count(v_count));
@@ -139,7 +117,7 @@ module DDR3_Controller (
 		endcase
 	end
 
-//=================================================================== STATE TRANSITION BLOCK=========================================================
+//=================================================================== STATE TRANSITION BLOCK=================================
 	always_ff@(posedge i_cpu_ck) begin
 		if(cont_if_cpu.i_cpu_reset)											
 			state <= POWERUP;										// state to POWERUP on reset
@@ -212,9 +190,7 @@ module DDR3_Controller (
 
 			endcase
 	end
-
-
-//======================================================== OUTPUT BLOCK=============================================================================
+//======================================================== OUTPUT BLOCK==================================================
 // Begin with reseting the controller outputs to deassert condition.
 	always_comb begin
 		cont_if_mem.rst_n   = 1'b1;							// deassert reset signal
@@ -399,8 +375,6 @@ module DDR3_Controller (
 			end
 		endcase
 	end
-
-
 //=====================================================TRI STATE LOGIC FOR BIDIRECTIONAL SIGNALS========================================================
 // TRISTATING  DQ , DQS
 	assign cont_if_mem.dq      = (dq_valid) 	? t_dq_local	:'bz ;							//assign dq to t_dq_local if dq_valid is set
@@ -429,9 +403,6 @@ module DDR3_Controller (
 
  endmodule:DDR3_Controller
 endmodule                                  //end of counter module
-
---------------------------------------------------------------------------------------------------------------------------------------------------
-
 /***************************************************************************************************************************
 *
 *    File Name:  DUT_pkg.sv
@@ -439,15 +410,9 @@ endmodule                                  //end of counter module
 *        Model:  Package for various parameters
 *
 * Dependencies:  DUT.sv
-*				 
-*
 *  Description:  Contains generalized parameters for address and Data bits.
 *				 Also parameterizes the delays depecding on the memory model specs
-
-
 *****************************************************************************************************************************/
-
-
 package DDR3MemPkg;
 //==================================================================================================================================================
 	// BIT Parameters
@@ -477,23 +442,15 @@ package DDR3MemPkg;
 	States state;
 
 endpackage
--------------------------------------------------------------------------------------------------------------------------------------------------
-
 /***************************************************************************************************************************
-*
 *    File Name:  interface.sv
 *      Version:  1.0
 *        Model:  Interface 
 *
 * Dependencies:  DUT.sv
 *				 DDR3MemPkg.sv
-*				 
-*
 *  Description:  contains 2 interfaces. 1. CPU-CONTROLLER    2. CONTROLLER-MEMORY
 *				 Contains respective modports in each interface  
-*
-
-
 *****************************************************************************************************************************/
 
 import DDR3MemPkg::* ;                     //Importing the variables for memory parameters and Address bit parameters
@@ -529,13 +486,9 @@ interface mem_if(input logic i_cpu_ck);	   //Clock from emulator mem_if Interfac
 		input ck, ck_n, rst_n, cs_n, cke, ras_n, cas_n, we_n, odt,ba, addr,tdqs_n,
 		inout dm_tdqs,dq, dqs, dqs_n
 	);
-
-
 endinterface : mem_if
 
 ///////////////////////// Interface for Driver///////////////////////////
-
-
 //==================================================================================================================================================
 //Interface between CPU and Memory Controller
 interface mem_intf(input logic i_cpu_ck);
@@ -552,7 +505,6 @@ interface mem_intf(input logic i_cpu_ck);
 	logic [8*DQ_BITS-1:0]		o_cpu_rd_data;	// Cpu data Read
 	logic	     				o_cpu_data_rdy;	// Cpu data Ready	
 	logic 						o_cpu_rd_data_valid; // Signal for valid data sent to CPU   
-	
 
   modport MemController (
 		input   i_cpu_ck,                    // Clock from TB
@@ -640,7 +592,7 @@ task run(logic valid, logic cmd, logic [ADDR_MCTRL-1:0] address,                
 				i_cpu_valid=0;                                                        //making the valid signal to go low
 				end
 		
-		if (valid && ~cmd) begin												      //if valid is high and write enable is low then read operation										// Read
+		if (valid && ~cmd) begin												      //if valid is high and write enable is low then read operation// Read
 				i_cpu_addr=address;                                                   //address is sent to i_cpu_addr (MemController)
 				@(posedge i_cpu_ck);                                                  //in the posedge of clock cycle
 				i_cpu_valid=0;                                                        //making the valid signal to go low
@@ -661,19 +613,11 @@ endinterface : mem_intf                                                         
 *        Model:  Read Burst
 *
 * Dependencies: DUT.sv 
-*				 
-*
 *  Description:  Receives 8 bits per clock edge from the memory.
 *				 After one clock cycle, concatenates the 8 bits to for a 16 bit output.
-*
-* Rev   Author   Date        Changes
-* ---------------------------------------------------------------------------------------
-* 0.1    SA      02/28/18    FSM design
-* 0.42  JMK      08/25/06    Created internal clock using ck and ck_n.
+
 
 *****************************************************************************************************************************/
-
-
 module read_burst #(parameter BW = 8)(input logic clock,   //Read Burst from Memory to Memory Controller
 				  input logic [BW-1:0] data_in,            // input Data to  dram Buffers
 				  output logic [BW*2-1:0] out);            //  output read data
@@ -699,23 +643,18 @@ always_ff @ (negedge clock) begin         //in the posedge of the clock we send 
 end
 
 endmodule // read_burst
--------------------------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
 
-/***************************************************************************************************************************
+/***************************************************************************************************
 *
 *    File Name:  Burst.sv
 *      Version:  1.0
 *        Model:  Write burst
 *
 * Dependencies:  DUT_pkg.sv
-*				 
-*
 *  Description:  Performs the burst operation by writing by taking 16 bits per clock cycle as inputs
 *				 Sends 8 bits of data at every clock edge to the memory.
-*
-*
-
-*****************************************************************************************************************************/
+*******************************************************************************************************/
 
 module WriteBurst #(parameter BW=8)(      //Write Burst 
 	input  logic        clock    ,        //Input clock
@@ -730,12 +669,12 @@ module WriteBurst #(parameter BW=8)(      //Write Burst
 	logic valid_out1,valid_out2;          //Valid Signal for temp1,temp2 data is valid 
 
 	
-//==================================================================================================================================================
+//=========================================================================================================================
 	assign out = (clock) ? temp2 : temp1;           //Sending out data as it is centre aligned for write
 
 	assign valid_out = (valid_out1 & valid_out2);   //Valid is asserted high if both the temp1 and temp2 valid signals are high
 	
-//==================================================================================================================================================
+//==========================================================================================================================
 //keep the track of data to be send to memory at every posedge and negdedge by setting the valid signal 
 	always_ff @(negedge clock) begin : proc_valid1  
 		if(reset) begin                             //In negedge of Clock if reset is assigned to 0
@@ -752,7 +691,7 @@ module WriteBurst #(parameter BW=8)(      //Write Burst
 		end
 	end
 	
-//==================================================================================================================================================
+//=================================================================================================
 //send the data to Memory in chunks of 8 bits in every posedge and negedge of Clock Cycle
 	always @ (posedge clock) begin            //Capturing LSB of 8 bits in posedge of clock
 		if(valid_in)
@@ -763,13 +702,11 @@ module WriteBurst #(parameter BW=8)(      //Write Burst
 			temp2 <= data[2*BW-1:BW];
 	end
 
-//==================================================================================================================================================
+//==================================================================================================
 endmodule:WriteBurst
--------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        cfs_cpu_agent.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-24
 // Description: CPU agent class.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -840,8 +777,6 @@ endmodule:WriteBurst
 ------------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_base_item.sv
-// Author:      Mohamed Ehab
-// Date:        2025-3-22
 // Description: CPU agent base sequence item.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -862,8 +797,6 @@ endmodule:WriteBurst
 ---------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_base_sequence.sv
-// Author:      Mohamed Ehab
-// Date:        2023-03-25
 // Description: CPU base sequence class.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -881,11 +814,9 @@ class ddr3_cpu_base_sequence extends uvm_sequence#(ddr3_cpu_drv_item);
   endclass : ddr3_cpu_base_sequence
 
 `endif
-------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_config.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-23
 // Description: CPU agent configurations.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -923,9 +854,7 @@ class ddr3_cpu_base_sequence extends uvm_sequence#(ddr3_cpu_drv_item);
         `uvm_fatal("ALGORITHM_ISSUE", "Trying to set the CPU virtual interface more than once")
       end
     endfunction
-    
-    
-    
+
     //Getter for the CPU agent Active/Passive control
     virtual function uvm_active_passive_enum get_active_passive();
       return active_passive;
@@ -935,7 +864,6 @@ class ddr3_cpu_base_sequence extends uvm_sequence#(ddr3_cpu_drv_item);
     virtual function void set_active_passive(uvm_active_passive_enum value);
       active_passive = value;
     endfunction
-    
     
     //Start of Simulation Phase 
     virtual function void start_of_simulation_phase(uvm_phase phase);
@@ -948,16 +876,12 @@ class ddr3_cpu_base_sequence extends uvm_sequence#(ddr3_cpu_drv_item);
         `uvm_info("CPU_CONFIG", "The CPU virtual interface is configured at \"Start of simulation\" phase", UVM_DEBUG)
       end
     endfunction
-    
-    
   endclass : ddr3_cpu_config
 
 `endif
 --------------------------------------------------------------------------------------------------------------------
 --///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_driver.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-23
 // Description: CPU agent driver.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1042,7 +966,7 @@ class ddr3_cpu_driver extends uvm_driver #(ddr3_cpu_drv_item);
   endclass : ddr3_cpu_driver
 
 `endif
------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_drv_item.sv
 // Author:      Mohamed Ehab
@@ -1082,11 +1006,9 @@ class ddr3_cpu_driver extends uvm_driver #(ddr3_cpu_drv_item);
   endclass : ddr3_cpu_drv_item
 
 `endif
---------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_if.sv
-// Author:      Mohamed Ehab
-// Date:        2025-3-22
 // Description: CPU agent interface.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1129,11 +1051,9 @@ class ddr3_cpu_driver extends uvm_driver #(ddr3_cpu_drv_item);
   endinterface : cpu_if
 
 `endif
---------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_drv_item.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-22
 // Description: CPU agent monitor sequence item.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1174,11 +1094,9 @@ class ddr3_cpu_driver extends uvm_driver #(ddr3_cpu_drv_item);
   endclass : ddr3_cpu_mon_item
 
 `endif
------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_monitor.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-23
 // Description: CPU agent monitor.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1259,11 +1177,9 @@ class ddr3_cpu_monitor extends uvm_driver #(ddr3_cpu_mon_item);
   endclass : ddr3_cpu_monitor
 
 `endif
---------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_pkg.sv
-// Author:      Mohamed Ehab
-// Date:        2025-3-22
 // Description: CPU Agent package.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1295,11 +1211,9 @@ class ddr3_cpu_monitor extends uvm_driver #(ddr3_cpu_mon_item);
   endpackage : ddr3_cpu_pkg
 
 `endif
-------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_read_sequence.sv
-// Author:      Mohamed Ehab
-// Date:        2023-03-25
 // Description: CPU read sequence class.
 ///////////////////////////////////////////////////////////////////////////////
  
@@ -1342,11 +1256,9 @@ class ddr3_cpu_read_seq extends ddr3_cpu_base_sequence ;
 endclass: ddr3_cpu_read_seq
 
 `endif
---------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_sequencer.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-23
 // Description: CPU agnet sequencer.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1359,11 +1271,9 @@ class ddr3_cpu_sequencer extends uvm_sequencer #(ddr3_cpu_drv_item);
   endfunction :new
   
 endclass : ddr3_cpu_sequencer 
-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_cpu_write_sequence.sv
-// Author:      Mohamed Ehab
-// Date:        2023-03-25
 // Description: CPU write sequence class.
 ///////////////////////////////////////////////////////////////////////////////
  
@@ -1409,11 +1319,9 @@ class ddr3_cpu_write_seq extends ddr3_cpu_base_sequence ;
 endclass: ddr3_cpu_write_seq
 
 `endif
--------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        cfs_cpu_agent.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-24
 // Description: Environment class.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1442,11 +1350,9 @@ endclass: ddr3_cpu_write_seq
   endclass : ddr3_env
 
 `endif
--------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_pkg.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-24
 // Description: Environment package.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1465,11 +1371,9 @@ endclass: ddr3_cpu_write_seq
   endpackage : ddr3_env_pkg
 
 `endif
----------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_mem_if.sv
-// Author:      Mohamed Ehab
-// Date:        2025-3-22
 // Description: memory interface.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1508,11 +1412,9 @@ endinterface : mem_if
 		
 
 `endif
--------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_mem_pkg.sv
-// Author:      Mohamed Ehab
-// Date:        2025-3-25
 // Description: Memory Agent package.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1543,8 +1445,6 @@ endinterface : mem_if
 ----------------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        testbench.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-24
 // Description: Testbench module. It contains the instance of the DUT and the 
 //              logic to start the UVM test and UVM phases.
 ///////////////////////////////////////////////////////////////////////////////
@@ -1572,9 +1472,7 @@ module top();
    // Interface Instance 
     cpu_if cpu_intf(i_cpu_ck);   // Instance of CPU-CONTR Interface
     mem_if mem_intf(i_cpu_ck);   // Instance of CONTR-MEM Interface
-				
-	
-
+			
    // Controller Instance
 	DDR3_Controller	DDR3(
 						  .i_cpu_ck(i_cpu_ck),				// System Clock
@@ -1604,8 +1502,6 @@ endmodule : top
 -----------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_base_test.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-25
 // Description: Basic test class. It creates the instance of the environment.
 //              This class should be the parent of all the tests used in the
 //              verification of the DDR3 Controller.
@@ -1635,11 +1531,9 @@ endmodule : top
   endclass : ddr3_base_test
 
 `endif
---------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_read_test.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-25
 // Description: Read test class. Tests the read command respond of 
 //              the DDR3 Controller.
 ///////////////////////////////////////////////////////////////////////////////
@@ -1679,8 +1573,6 @@ endclass : ddr3_read_test
 -----------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_test_pkg.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-24
 // Description: Test package.
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1705,8 +1597,6 @@ endclass : ddr3_read_test
 ----------------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 // File:        ddr3_write_test.sv
-// Author:      Mohamed Ehab
-// Date:        2025-03-25
 // Description: Write test class. Tests the write command respond of 
 //              the DDR3 Controller.
 ///////////////////////////////////////////////////////////////////////////////
