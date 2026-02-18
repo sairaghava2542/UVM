@@ -2806,3 +2806,526 @@ endclass : agent
 ---------------------------------------------------------------------------------------------------------
                           TEST_CASE NOT UPLODED 7
 -------------------------------------------------------------------------------------------------
+==================================
+	  Test_Cases/base_test.sv		
+===================================
+class base_test extends uvm_test ;
+  `uvm_component_utils(base_test)
+
+  env risc_env ;
+  reset_seq  reset_s  ;
+
+  // Constructor 
+  function new(string name = "base_test" ,uvm_component parent);
+    super.new(name,parent);
+  endfunction :new
+
+  // Build Phase 
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    risc_env = env::type_id::create("risc_env",this);
+    reset_s = reset_seq::type_id::create("reset_s");
+  endfunction : build_phase 
+
+endclass :base_test
+==================================
+Test_Cases/branch_test.sv
+==================================
+class branch_test extends base_test ;
+ `uvm_component_utils(branch_test)
+
+  rand_seq rand_s ;
+  jal_seq jal_s;
+  jalr_seq jalr_s;
+  arith_seq arith_s;
+  branch_seq branch_s;
+  sw_seq sw_s;
+  
+  function new(string name = "branch_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    rand_s = rand_seq::type_id::create("rand_s");
+    arith_s = arith_seq::type_id::create("arith_s");
+    jal_s = jal_seq::type_id::create("jal_s");
+    jalr_s = jalr_seq::type_id::create("jalr_s");
+    branch_s = branch_seq::type_id::create("branch_s");
+    sw_s = sw_seq::type_id::create("sw_s");
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+
+    repeat (2000) begin 
+       branch_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat (2) rand_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (2000) begin 
+       branch_s.start(risc_env.risc_agent.risc_sequencer);
+       arith_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+   
+    repeat (100) begin 
+       branch_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)jal_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (100) begin 
+       branch_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)jalr_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+ 
+   repeat (20) begin 
+       branch_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)sw_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+    
+    phase.drop_objection(this);
+  endtask
+endclass
+===========================================
+	  Test_Cases/imm_test.sv
+===========================================
+class imm_test extends base_test ;
+ `uvm_component_utils(imm_test)
+
+  imm_seq imm_s ;
+  rand_seq rand_s ;
+  jal_seq jal_s;
+  jalr_seq jalr_s;
+  arith_seq arith_s;
+  lw_seq lw_s;
+  sw_seq sw_s;
+  branch_seq branch_s;
+  
+  function new(string name = "imm_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    imm_s = imm_seq::type_id::create("imm_s");
+    rand_s = rand_seq::type_id::create("rand_s");
+    arith_s = arith_seq::type_id::create("arith_s");
+    jal_s = jal_seq::type_id::create("jal_s");
+    jalr_s = jalr_seq::type_id::create("jalr_s");
+    branch_s = branch_seq::type_id::create("branch_s");
+    sw_s = sw_seq::type_id::create("sw_s");
+    lw_s = lw_seq::type_id::create("lw_s");
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+
+    repeat (1) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat (2) rand_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (8000) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       arith_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (1) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       branch_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+   
+    repeat (100) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)jal_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (100) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)jalr_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (100) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)sw_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (100) begin 
+       imm_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(1)lw_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+    
+    phase.drop_objection(this);
+  endtask
+endclass
+=================================================
+	Test_Cases/jump_test.sv
+==================================================
+class jump_test extends base_test ;
+ `uvm_component_utils(jump_test)
+
+  jal_seq jal_s;
+  jalr_seq jalr_s;
+  sw_seq sw_s;
+  lw_seq lw_s;
+  branch_seq branch_s;  
+  arith_seq arith_s;
+
+  function new(string name = "jump_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    sw_s = sw_seq::type_id::create("sw_s");
+    lw_s = lw_seq::type_id::create("lw_s");
+    jal_s = jal_seq::type_id::create("jal_s");
+    jalr_s = jalr_seq::type_id::create("jalr_s");
+    branch_s = branch_seq::type_id::create("branch_s");
+    arith_s = arith_seq::type_id::create("arith_s");
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+
+    repeat (20) begin // jal --> R
+       jal_s.start(risc_env.risc_agent.risc_sequencer);
+       arith_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (20) begin // jalr --> R 
+       jalr_s.start(risc_env.risc_agent.risc_sequencer);
+       arith_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (20) begin // jal --> branch
+       jal_s.start(risc_env.risc_agent.risc_sequencer);
+       branch_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+    repeat (20) begin // jalr --> branch 
+       jalr_s.start(risc_env.risc_agent.risc_sequencer);
+       branch_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+   
+    repeat (1) begin 
+       jal_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)sw_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (1) begin 
+       jal_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)lw_s.start(risc_env.risc_agent.risc_sequencer); 
+   end
+
+   repeat (1) begin 
+       jalr_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(2)sw_s.start(risc_env.risc_agent.risc_sequencer);   
+    end
+
+   repeat (1) begin 
+       jalr_s.start(risc_env.risc_agent.risc_sequencer);
+       repeat(3)lw_s.start(risc_env.risc_agent.risc_sequencer);  
+    end
+    
+    phase.drop_objection(this);
+  endtask
+endclass
+====================================================================
+	  Test_Cases/rand_test.sv
+===================================================================
+class rand_test extends base_test ;
+ `uvm_component_utils(rand_test)
+
+  rand_seq rand_s ;
+  
+  function new(string name = "rand_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    rand_s = rand_seq::type_id::create("rand_s");
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+    repeat (10000) rand_s.start(risc_env.risc_agent.risc_sequencer);
+    repeat (5) reset_s.start(risc_env.risc_agent.risc_sequencer);
+    repeat (10000) rand_s.start(risc_env.risc_agent.risc_sequencer);   
+    
+    phase.drop_objection(this);
+  endtask
+
+endclass
+=====================================================================
+	  Test_Cases/test.sv
+=================================================================
+
+class rand_test extends base_test ;
+  `uvm_component_utils(rand_test)
+  rand_seq rand_s ;
+  
+  function new(string name = "jump_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    rand_s = rand_seq::type_id::create("rand_s");
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+    repeat (200) rand_s.start(risc_env.risc_agent.risc_sequencer);   
+    
+    phase.drop_objection(this);
+  endtask
+
+endclass
+
+//========================================================================================
+
+
+class memory_test extends uvm_test ; // Directed test to verify memory read and write operations 
+  `uvm_component_utils(memory_test)
+
+  env risc_env ;
+  reset_seq  reset_s  ;
+  addi_seq  addi_s ;
+  sw_seq sw_s ;
+  lw_seq lw_s ;
+  and_seq and_s ;
+ 
+
+  // Constructor 
+  function new(string name = "memory_test" ,uvm_component parent);
+    super.new(name,parent);
+  endfunction :new
+
+  // Build Phase 
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    risc_env = env::type_id::create("risc_env",this);
+  endfunction : build_phase 
+
+  // Run Phase 
+  task  run_phase(uvm_phase phase);
+    super.run_phase(phase);
+    phase.raise_objection(this);
+  
+    repeat(1) begin
+       reset_s = reset_seq::type_id::create("reset_s");
+       reset_s.start(risc_env.risc_agent.risc_sequencer);
+    end
+
+    repeat(60) begin 
+      addi_s = addi_seq::type_id::create("addi_s");
+      addi_s.start(risc_env.risc_agent.risc_sequencer);	 
+     end
+       
+//     repeat(1) begin 
+//       sw_s = sw_seq::type_id::create("sw_s");
+//       sw_s.start(risc_env.risc_agent.risc_sequencer);	 
+//      end
+    repeat(10) begin 
+      and_s = and_seq::type_id::create("and_s");
+      and_s.start(risc_env.risc_agent.risc_sequencer);	 
+     end
+    
+    repeat(10) begin 
+      addi_s = addi_seq::type_id::create("addi_s");
+      addi_s.start(risc_env.risc_agent.risc_sequencer);	 
+     end
+
+//     repeat(20) begin 
+//       lw_s = lw_seq::type_id::create("lw_s");
+//       lw_s.start(risc_env.risc_agent.risc_sequencer);	 
+//      end
+    
+ //  $stop ;  
+    phase.drop_objection(this);  
+  endtask :run_phase
+
+endclass :memory_test
+
+//========================================================================================
+
+
+class stall_test extends uvm_test ; // Directed test to verify the LW stall hazard 
+  `uvm_component_utils(stall_test)
+
+  env risc_env ;
+  
+  reset_seq  reset_s  ;
+  addi_seq addi_s ;
+  addi_1  addi_s1 ;
+  addi_2  addi_s2 ;
+  addi_3  addi_s3 ;
+  addi_4  addi_s4 ;
+  addi_5  addi_s5 ;
+  sw_test sw_s ;
+  sw_test2 sw_s2 ;
+  lw_test lw_s ;
+  
+  lw_seq lw_sv ;
+  sw_seq sw_sv ;
+
+  // Constructor 
+  function new(string name = "stall_test" ,uvm_component parent);
+    super.new(name,parent);
+  endfunction :new
+
+  // Build Phase 
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    risc_env = env::type_id::create("risc_env",this);
+  endfunction : build_phase 
+
+  // Run Phase 
+  task  run_phase(uvm_phase phase);
+    super.run_phase(phase);
+    phase.raise_objection(this);
+  
+    repeat(2) begin
+       reset_s = reset_seq::type_id::create("reset_s");
+       reset_s.start(risc_env.risc_agent.risc_sequencer);
+    end
+    
+    addi_s1 = addi_1::type_id::create("addi_s1"); // x6 = x1(0) + 77 
+    addi_s1.start(risc_env.risc_agent.risc_sequencer);	
+    
+    addi_s2 = addi_2::type_id::create("addi_s2");  // x2 = x1(0) + 33 
+    addi_s2.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s3 = addi_3::type_id::create("addi_s3"); // x3 = x1(0) + 55
+    addi_s3.start(risc_env.risc_agent.risc_sequencer);
+     
+    repeat(1) begin 
+     sw_s = sw_test::type_id::create("sw_s"); // mem[7] = x6(77)
+     sw_s.start(risc_env.risc_agent.risc_sequencer);	 
+    end
+    
+    addi_s3 = addi_3::type_id::create("addi_s3"); // x3 = x1(0) + 55
+    addi_s3.start(risc_env.risc_agent.risc_sequencer);
+      
+    lw_s = lw_test::type_id::create("lw_s"); // x4 = mem[7](77)
+    lw_s.start(risc_env.risc_agent.risc_sequencer);	
+         
+    addi_s4 = addi_4::type_id::create("addi_s4"); // x7 = x4(77) + 3 = 80 
+    addi_s4.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s5 = addi_5::type_id::create("addi_s5"); // x16 = x1(0) + 3
+    addi_s5.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s1 = addi_1::type_id::create("addi_s1");   // rd = rs1(0) + 77 
+    addi_s1.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s5 = addi_5::type_id::create("addi_s5"); // x16 = x1(0) + 3
+     addi_s5.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s5 = addi_5::type_id::create("addi_s5"); // x16 = x1(0) + 3
+     addi_s5.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s2 = addi_2::type_id::create("addi_s2");  // x2 = x1(0) + 33 
+     addi_s2.start(risc_env.risc_agent.risc_sequencer);
+    
+    addi_s3 = addi_3::type_id::create("addi_s3"); // x3 = x1(0) + 55
+    addi_s3.start(risc_env.risc_agent.risc_sequencer);  
+    
+  //  $stop ;    
+    phase.drop_objection(this);  
+  endtask :run_phase
+
+endclass : stall_test
+
+//======================================================================================
+
+class jump_test extends base_test ;
+  `uvm_component_utils(jump_test)
+
+  addi_seq addi_s ;
+  jal_seq jal_s ;
+  jalr_seq jalr_s ;
+  bne_seq bne_s ;
+  beq_seq beq_s ;
+  bge_seq bge_s ;
+  blt_seq blt_s ;
+  sw_seq sw_s ;
+  lw_seq lw_s ;
+  
+  addi_1 addi_s1 ;
+  addi_2 addi_s2 ;
+  addi_3 addi_s3 ;
+  addi_4 addi_s4 ;
+  addi_5 addi_s5 ;
+  
+  bne_test bne_ts ;
+  
+  function new(string name = "jump_test",uvm_component parent=null);
+    super.new(name,parent);
+  endfunction
+
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+      addi_s = addi_seq::type_id::create("addi_s");
+      jal_s = jal_seq::type_id::create("jal_s");
+      jalr_s = jalr_seq::type_id::create("jalr_s");
+      bne_s = bne_seq::type_id::create("bne_s");
+      beq_s = beq_seq::type_id::create("beq_s");
+      blt_s = blt_seq::type_id::create("blt_s");
+      bge_s = bge_seq::type_id::create("bge_s");
+      sw_s = sw_seq::type_id::create("sw_s"); 
+      lw_s = lw_seq::type_id::create("lw_s"); 
+    
+    addi_s1 = addi_1::type_id::create("addi_s1");
+    addi_s2 = addi_2::type_id::create("addi_s2");
+    addi_s3 = addi_3::type_id::create("addi_s3");
+    addi_s4 = addi_4::type_id::create("addi_s4");
+    addi_s5 = addi_5::type_id::create("addi_s5");
+    
+    bne_ts = bne_test::type_id::create("bne_ts");
+      
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    
+    repeat (2) reset_s.start(risc_env.risc_agent.risc_sequencer);
+    repeat (20) addi_s.start(risc_env.risc_agent.risc_sequencer); 
+//     repeat (1) addi_s1.start(risc_env.risc_agent.risc_sequencer); // x6 = 77
+//     repeat (1) addi_s2.start(risc_env.risc_agent.risc_sequencer); // x2 = 77
+//     repeat (4) addi_s4.start(risc_env.risc_agent.risc_sequencer); // x3 = 55 
+    repeat (20)  bge_s.start(risc_env.risc_agent.risc_sequencer); 
+ //   repeat (1)  sw_s.start(risc_env.risc_agent.risc_sequencer);
+  //  repeat (10) addi_s.start(risc_env.risc_agent.risc_sequencer); 
+
+    #100;
+    phase.drop_objection(this);
+  endtask
+
+endclass
+=============================================================================
+Test_Cases/test_list.f
+============================================================================
+rand_test
+imm_test
+branch_test
+jump_test
+	  *************************end**********************************************
