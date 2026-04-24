@@ -1,0 +1,63 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Hazard Handling Detailed">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Pipeline stages -->
+        <mxCell id="IF" value="IF" style="rounded=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="80" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ID" value="ID" style="rounded=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="160" y="200" width="80" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="EX" value="EX" style="rounded=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="280" y="200" width="80" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="MEM" value="MEM" style="rounded=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="400" y="200" width="80" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="WB" value="WB" style="rounded=1;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="520" y="200" width="80" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Forwarding paths -->
+        <mxCell id="fwd1" value="Forward MEM→EX" style="endArrow=block;dashed=1;strokeColor=#ff0000;" edge="1" parent="1" source="MEM" target="EX">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fwd2" value="Forward WB→EX" style="endArrow=block;dashed=1;strokeColor=#ff0000;" edge="1" parent="1" source="WB" target="EX">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Stall Unit -->
+        <mxCell id="stall" value="Hazard Detection Unit&#10;(Load-Use Stall)" style="rounded=1;fillColor=#ffe6cc;" vertex="1" parent="1">
+          <mxGeometry x="160" y="320" width="200" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="stall_arrow" value="Stall Signal" style="endArrow=block;strokeColor=#0000ff;" edge="1" parent="1" source="stall" target="ID">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Flush Unit -->
+        <mxCell id="flush" value="Control Hazard Unit&#10;(Branch Flush)" style="rounded=1;fillColor=#ffe6e6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="60" width="220" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="flush_arrow1" value="Flush IF" style="endArrow=block;strokeColor=#000000;" edge="1" parent="1" source="flush" target="IF">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="flush_arrow2" value="Flush ID" style="endArrow=block;strokeColor=#000000;" edge="1" parent="1" source="flush" target="ID">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
