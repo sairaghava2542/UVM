@@ -1,0 +1,1994 @@
+module ALU (
+  input  logic ACLK,
+  input  logic RESET,
+  input  logic [31:0] A,
+  input  logic [31:0] B,
+  input  logic [ 4:0] aluop,
+  output logic [31:0] ALUResult
+);
+  // multiplication
+  logic [63:00] multiplication_signed, multiplication_unsigned, multiplication_signed_unsigned;
+  mul_signed mul_s(
+    .aclr(RESET),
+    .clock(ACLK),
+    .dataa(A),
+    .datab(B),
+    .result(multiplication_signed)
+  );
+
+  mul_unsigned mul_u(
+    .aclr(RESET),
+    .clock(ACLK),
+    .dataa(A),
+    .datab(B),
+    .result(multiplication_unsigned)
+  );
+  assign multiplication_signed_unsigned = multiplication_signed;
+
+  // division
+  logic [31:00] division_signed, division_unsigned, remainder_signed, remainder_unsigned;
+  div_signed div_s(
+    .aclr(RESET),
+    .clock(ACLK),
+    .denom(B),
+    .numer(A),
+    .quotient(division_signed),
+    .remain(remainder_signed)
+  );
+
+  div_unsigned div_u(
+    .aclr(RESET),
+    .clock(ACLK),
+    .denom(B),
+    .numer(A),
+    .quotient(division_unsigned),
+    .remain(remainder_unsigned)
+  );
+
+
+  always_comb begin
+    case (aluop)
+      5'd00:    ALUResult = A  +  B; // ADD
+      5'd01:    ALUResult = A  -  B; // SUB
+      5'd02:    ALUResult = $signed(A) < $signed(B); // SLT
+      5'd03:    ALUResult = A  <  B; // SLTU
+      5'd04:    ALUResult = A  &  B; // AND
+      5'd05:    ALUResult = A  |  B; // OR
+      5'd06:    ALUResult = A  ^  B; // XOR
+      5'd07:    ALUResult = A  << B[04:00]; // SLL
+      5'd08:    ALUResult = A  >> B[04:00]; // SRL
+      5'd09:    ALUResult = $signed(A) >>> B[04:00]; // SRA
+      5'd10:    ALUResult = multiplication_signed[31:00]; // MUL
+      5'd11:    ALUResult = multiplication_signed[63:32]; // MULH
+      5'd12:    ALUResult = multiplication_unsigned[63:32]; // MULHU
+      5'd13:    ALUResult = multiplication_signed_unsigned[63:32]; // MULHSU
+      5'd14:    begin // DIV
+                  if (A != 32'd0 && B == 32'd0) begin // Division By Zero
+                    ALUResult = 32'hffffffff; // -1
+                  end
+                  else if (A == 32'h8000000 && B == 32'hffffffff) begin // Division overflow
+                    ALUResult = 32'h8000000; // -2 ^ (L-1)
+                  end
+                  else begin // Normal Division
+                    ALUResult = division_signed[31:00];
+                  end
+                end
+      5'd15:    begin // DIVU
+                  if (A != 32'd0 && B == 32'd0) begin // Division By Zero
+                    ALUResult = 32'hffffffff; // 2^(L) - 1
+                  end
+                  else begin // Normal Division
+                    ALUResult = division_unsigned[31:00];
+                  end
+                end
+      5'd16:    begin // REM
+                  if (A != 32'd0 && B == 32'd0) begin // Division By Zero
+                    ALUResult = A;
+                  end
+                  else if (A == 32'h8000000 && B == 32'hffffffff) begin // Division overflow
+                    ALUResult = 32'h0; // 0
+                  end
+                  else begin
+                    ALUResult = remainder_signed[31:00];
+                  end
+                end
+      5'd17:    begin // REMU
+                  if (A != 32'd0 && B == 32'd0) begin // Division By Zero
+                    ALUResult = A;
+                  end
+                  else begin
+                    ALUResult = remainder_unsigned[31:00];
+                  end
+                end
+      5'd18:    ALUResult = B; // pass B
+      default: ALUResult = 32'd0;
+    endcase
+    
+  end
+
+endmodule: ALU
+
+module CPU (
+    // AMBA 4 AXI 4 (manager)
+    input  logic         ACLK,          // global clock
+    input  logic         RESET,         // asynchronous reset (active high)
+    // Master Interface Write Address
+//    output logic         M_AXI_AWID,    // master write address ID
+//    output logic [31:00] M_AXI_AWADDR,  // master write address
+//    output logic [07:00] M_AXI_AWLEN,   // burst length
+//    output logic [02:00] M_AXI_AWSIZE,  // burst size
+//    output logic [02:00] M_AXI_AWBURST, // burst type
+//    output logic         M_AXI_AWLOCK,  // lock type
+//    output logic [03:00] M_AXI_AWCACHE, // memory type
+//    output logic [02:00] M_AXI_AWPROT,  // protection type
+//    output logic [03:00] M_AXI_AWQOS,   // Quality of Service (QoS)
+//    // output logic [03:00] M_AXI_AWQOS,   // Region Identifier (size not sure yet)
+//    output logic         M_AXI_AWUSER,  // User Signal
+//    output logic         M_AXI_AWVALID, // write address is valid (from master)
+//    input  logic         M_AXI_AWREADY, // write address is ready (from slave)
+//    // Master Interface Write Data
+//    output logic [31:00] M_AXI_WDATA,   // Write Data
+//    output logic [03:00] M_AXI_WRSTB,   // Write Strobe
+//    output logic         M_AXI_WLAST,   // write Last
+//    output logic         M_AXI_WVALID,  // Data Valid (from master)
+//    input  logic         M_AXI_WREADY,   // Data Ready (from slave)
+
+
+   output logic [31:00] ADDR,
+   input  logic [31:00] DATA_I,
+   output logic [31:00] DATA_O,
+   output logic         WRSTB,
+   output logic         RDSTB
+);
+    // instruction and program counter
+    logic [31:00] instruction1, instruction2;
+    logic [31:00] program_counter1, program_counter2, program_counter3, program_counter4;
+
+    // instruction parts
+    logic [06:00] opcode;
+    logic [04:00] rs1;
+    logic [04:00] rs2;
+    logic [04:00] rd2, rd3, rd4, rd5;
+    logic [02:00] func3;
+    logic [06:00] func7;
+    logic [11:00] immI12;
+    logic [11:00] immS12;
+    logic [12:00] immB13;
+    logic [19:00] immU20;
+    logic [19:00] immJ20;
+
+    // instruction immediates
+    logic [31:00] immI32, immS32, immB32, immU32, immJ32;
+
+    // Register File signals
+    logic [31:00] busA2;
+    logic [31:00] busB2, busB3, busB4;
+    logic [31:00] busW5;
+    logic         regWrite2, regWrite3, regWrite4, regWrite5;
+
+    // Control Unit Signals
+    logic [04:00] aluOP2;
+    logic [01:00] portBSrc;
+    logic [01:00] memNoBytes2, memNoBytes3, memNoBytes4;
+    logic         memRead2, memRead3, memRead4;
+    logic         memWrite2, memWrite3, memWrite4;
+    logic         auipc2, jal2, jalr2, branch2;
+    logic         stallALU2, stallALU3;
+    logic [03:00] stallCycles2, stallCycles3;
+
+    // Forwarding Unit Signals
+    logic [01:00] forwardA, forwardB;
+    logic         stall;
+
+    // ALU signals
+    logic [31:00] portA2, portA3;
+    logic [31:00] portB2, portB3;
+    logic [31:00] aluResult3, aluResult4;
+    logic [04:00] aluOP3;
+
+    // Data Memory Signals
+    logic [31:00] memResult4;
+
+    // Bus W Selection Lines
+    logic [01:00] busWSel2, busWSel3, busWSel4;
+
+    // Stage 1: Instruction Fetch
+    // Instruction Fetch
+    InstructionMemory #(.IMSIZE(1024)) im
+    (   .clk(ACLK), .address(program_counter1), .instruction(instruction1));
+
+    always_ff @(posedge ACLK or posedge RESET) begin
+        if (RESET == 1'b1) begin
+            instruction2 <= 32'd0;
+        end
+        else if (jal2 == 1'b1 || jalr2 == 1'b1 || branch2 == 1'b1) begin
+            instruction2 <= 32'd0;
+        end
+        else if (stallALU3 == 1'b1) begin
+          instruction2 <= instruction2;
+        end
+        else begin
+          instruction2 <= instruction1;
+        end
+    end
+    // Stage 2: Instruction Decode, Register File and Conteol Unit
+    // Instruction Decoding
+    assign opcode = instruction2[06:00];
+    assign rd2    = instruction2[11:07];
+    assign rs1    = instruction2[19:15];
+    assign rs2    = instruction2[24:20];
+    assign func3  = instruction2[14:12];
+    assign func7  = instruction2[31:25];
+    assign immI12 = instruction2[31:20];
+    assign immS12 = {instruction2[31:25], instruction2[11:07]};
+    assign immB13 = {instruction2[31], instruction2[7],
+                    instruction2[30:25], instruction2[11:08], 1'b0};
+    assign immU20 = instruction2[31:12];
+    assign immJ20 = {instruction2[31], instruction2[19:12],
+                    instruction2[20], instruction2[30:21]};
+
+    // Immediates construction
+    assign immI32 = {{20{immI12[11]}},immI12};
+    assign immS32 = {{20{immS12[11]}},immS12};
+    assign immB32 = {{19{immB13[11]}},immB13};
+    assign immU32 = {immU20, 12'd0};
+    assign immJ32 = {{11{immJ20[11]}},immJ20, 1'b0};
+
+    // Register File
+    RegisterFile rf
+    (   .clk(ACLK), .reset(RESET), .rs1(rs1), .rs2(rs2), .rd(rd5),
+        .RegWrite(regWrite5), .BusW(busW5), .BusA(busA2), .BusB(busB2));
+
+    // always block to propogate the signals from the second stage to the other stages.
+    always_ff @(posedge ACLK or posedge RESET) begin
+        if (RESET == 1'b1) begin
+            regWrite3        <= 1'b0;
+            regWrite4        <= 1'b0;
+            regWrite5        <= 1'b0;
+            rd3              <= 5'd0;
+            rd4              <= 5'd0;
+            rd5              <= 5'd0;
+            aluOP3           <= 5'd0;
+            memRead3         <= 1'b0;
+            memWrite3        <= 1'b0;
+            memRead4         <= 1'b0;
+            memWrite4        <= 1'b0;
+            busB3            <= 32'd0;
+            busB4            <= 32'd0;
+            portA3           <= 32'd0;
+            portB3           <= 32'd0;
+            memNoBytes3      <= 2'd0;
+            memNoBytes4      <= 2'd0;
+            busWSel3         <= 2'd0;
+            busWSel4         <= 2'd0;
+            aluResult4       <= 32'd0;
+            program_counter2 <= 32'd0;
+            program_counter3 <= 32'd0;
+            program_counter4 <= 32'd0;
+            busW5            <= 32'd0;
+        end
+        else begin
+            if (stall == 1'b1) begin
+                regWrite3   <= 1'b0;
+                memRead3    <= 1'b0;
+                memWrite3   <= 1'b0;
+            end
+            else if (stallALU3 == 1'b1) begin
+                regWrite4        <= 1'b0;
+                rd3              <= rd3;
+                rd4              <= 5'd0;
+                aluOP3           <= aluOP3;
+                program_counter2 <= program_counter2;
+                program_counter3 <= program_counter3;
+                program_counter4 <= program_counter4;
+            end
+            else begin
+                regWrite4        <= regWrite3;
+                rd3              <= rd2;
+                rd4              <= rd3;
+                aluOP3           <= aluOP2;
+                program_counter2 <= program_counter1;
+                program_counter3 <= program_counter2;
+                program_counter4 <= program_counter3;
+                regWrite3   <= regWrite2;
+                memRead3    <= memRead2;
+                memWrite3   <= memWrite2;
+            end
+            case (forwardB)
+              2'd0:
+                busB3 <= busB2;
+              2'd1:
+                busB3 <= aluResult3;
+              2'd2:
+                busB3 <= memResult4;
+              2'd3:
+                busB3 <= busW5;
+              default:
+                busB3 <= 32'd0;
+            endcase
+            regWrite5        <= regWrite4;
+            rd5              <= rd4;
+            memRead4         <= memRead3;
+            memWrite4        <= memWrite3;
+            busB4            <= busB3;
+            portA3           <= portA2;
+            portB3           <= portB2;
+            memNoBytes3      <= memNoBytes2;
+            memNoBytes4      <= memNoBytes3;
+            busWSel3         <= busWSel2;
+            busWSel4         <= busWSel3;
+            aluResult4       <= aluResult3;
+            busW5            <= memResult4;
+        end
+    end
+    // Control Unit
+    ControlUnit cu
+    (   .opcode(opcode), .func3(func3), .func7(func7),
+        .RegWrite(regWrite2), .portBSrc(portBSrc), .aluop(aluOP2),
+        .memRead(memRead2), .memWrite(memWrite2), .memNoBytes(memNoBytes2),
+        .auipc(auipc2), .jal(jal2), .jalr(jalr2), .branch(branch2),
+        .busWSel(busWSel2), .portA(portA2), .portB(portB2),
+        .stallALU(stallALU2), .stallCycles(stallCycles2));
+
+    // Forwarding Unit
+    ForwardingUnit fw
+    (   .rs1(rs1), .rs2(rs2), .rd3(rd3), .rd4(rd4), .rd5(rd5),
+        .regWrite3(regWrite3), .regWrite4(regWrite4), .regWrite5(regWrite5),
+        .memRead3(memRead3), .forwardA(forwardA), .forwardB(forwardB), .stall(stall));
+
+    always_comb  begin
+      if (auipc2 == 1'b1) begin
+        portA2 = program_counter2;
+      end
+      else begin
+        case (forwardA)
+          2'd0: // Register File
+            portA2 = busA2;
+          2'd1: // Stage 3: ALU Result
+            portA2 = aluResult3;
+          2'd2: // Stage 4: Memory
+            portA2 = memResult4;
+          2'd3: // Stage 5: Write Back Stage
+            portA2 = busW5;
+          default:
+            portA2 = 32'd0;
+        endcase
+      end
+      case (portBSrc)
+        2'd0: // Register
+          begin
+            case (forwardB)
+              2'd0: // Register File
+                portB2 = busB2;
+              2'd1: // Stage 3: ALU Result
+                portB2 = aluResult3;
+              2'd2: // Stage 4: Memory
+                portB2 = memResult4;
+              2'd3: // Stage 5: Write Back Stage
+                portB2 = busW5;
+              default:
+                portB2 = 32'd0;
+            endcase
+          end
+        2'd1: // I-Immediate
+          portB2 = immI32;
+        2'd2: // S-Immediate
+          portB2 = immS32;
+        2'd3: // U-Immediate
+          portB2 = immU32;
+        default:
+          portB2 = 32'd0;
+      endcase
+    end
+    // Stage 3: Execution
+    always_ff @(posedge ACLK or posedge RESET) begin
+      if (RESET == 1'b1) begin
+        stallCycles3 <= 4'd0;
+        stallALU3    <= 1'b0;
+      end
+      else begin
+        if (stallALU2 == 1'b1 && stallALU3 == 1'b0) begin
+          stallALU3    <= 1'b1;
+          stallCycles3 <= stallCycles2;
+        end
+        else if (stallCycles3 == 4'd1) begin
+          stallCycles3 <= stallCycles3 - 4'd1;
+          stallALU3    <= 1'b0;
+        end
+        else if (stallCycles3 != 4'd0) begin
+          stallCycles3 <= stallCycles3 - 4'd1;
+          stallALU3    <= 1'b1;
+        end
+      end
+    end
+    ALU alu (.ACLK(ACLK), .RESET(RESET), .A(portA3), .B(portB3), .aluop(aluOP3), .ALUResult(aluResult3));
+    // Stage 4: Memory Read and Write
+    assign ADDR = aluResult4;
+    assign WRSTB = memWrite4;
+    assign RDSTB = memRead4;
+    assign DATA_O = busB4;
+
+    // Place Holder until AXI interface is implemented
+    // Stage 5: Write Back
+    always_comb begin
+      case (busWSel4)
+        2'd0:
+            memResult4 = aluResult4;
+        2'd1: begin
+        case(memNoBytes4)
+          2'd0:
+          memResult4 = {24'd0,DATA_I[07:00]};
+          2'd1:
+          memResult4 = {16'd0,DATA_I[15:00]};
+          2'd2:
+          memResult4 = DATA_I;
+          default:
+          memResult4 = 32'd0;
+        endcase
+        end
+        2'd2:
+            memResult4 = program_counter4 + 32'd4;
+        default:
+            memResult4 = 32'd0;
+      endcase
+    end
+    // Stage 5: Write Back
+
+    // Update program counter
+    always_ff @(posedge ACLK or posedge RESET) begin
+      if (RESET == 1'b1) begin
+        program_counter1 <= 32'd0;
+      end
+      else begin
+        if (stall == 1'b1 || stallALU3 == 1'b1) begin
+          program_counter1 <= program_counter1;
+        end
+        else begin
+          if (jal2 == 1'b1) begin
+            program_counter1 <= program_counter2 + immJ32;
+          end
+          else if (jalr2 == 1'b1) begin
+            // the lsb should be 0
+            program_counter1 <= portA2 + immI32;
+          end
+          else if (branch2 == 1'b1) begin
+            program_counter1 <= program_counter2 + immB32;
+          end
+          else begin
+            program_counter1 <= program_counter1 + 32'd4;
+          end
+        end
+      end
+    end
+
+endmodule: CPU
+
+module ControlUnit (
+    input  logic [06:00] opcode,
+    input  logic [02:00] func3,
+    input  logic [06:00] func7,
+    input  logic [31:00] portA,
+    input  logic [31:00] portB,
+    output logic         RegWrite,
+    output logic [01:00] portBSrc,
+    output logic [04:00] aluop,
+    output logic         stallALU,
+    output logic [03:00] stallCycles,
+    output logic         memRead,
+    output logic         memWrite,
+    output logic [01:00] memNoBytes,
+    output logic [01:00] busWSel,
+    output logic         auipc,
+    output logic         jal,
+    output logic         jalr,
+    output logic         branch
+);
+
+  always_comb begin
+    RegWrite    = 1'b0;
+    portBSrc    = 2'd0;
+    aluop       = 5'd0;
+    memRead     = 1'b0;
+    memWrite    = 1'b0;
+    memNoBytes  = 2'd0;
+    auipc       = 1'b0;
+    jal         = 1'b0;
+    jalr        = 1'b0;
+    branch      = 1'b0;
+    busWSel     = 2'd0;
+    stallALU    = 1'b0;
+    stallCycles = 4'd0;
+    case (opcode)
+      7'b0110111: // LUI
+        begin
+          aluop    = 5'd18; // pass B
+          RegWrite = 1'd1;  // Write to register rd
+          portBSrc = 2'd3;  // pass U-Immediate
+        end
+      7'b0010111: // AUIPC
+        begin
+          aluop    = 5'd0; // ADD
+          RegWrite = 1'd1; // Write to register rd
+          portBSrc = 2'd3; // pass U-Immediate
+          auipc    = 1'b1; // AUIPC instruction, pass program_counter in port A
+        end
+      7'b1101111: // JAL
+        begin
+          RegWrite = 1'b1;  // Write to register rd
+          jal      = 1'b1;  // JAL instruction
+          busWSel  = 2'd2;  // Store PC + 4
+        end
+      7'b1100111: // JALR
+        begin
+          if (func3 == 3'd0) begin
+            RegWrite = 1'd1;  // Write to register rd
+            jalr     = 1'b1;  // JALR instruction
+            portBSrc = 2'd1;  // pass I-Immediate
+            busWSel  = 2'd2;  // Store PC + 4
+          end
+        end
+      7'b1100011: // Branch instructions
+        begin
+          case (func3)
+            3'b000: // BEQ
+              begin
+                branch = portA == portB; // EQ
+              end
+            3'b001: // BNE
+              begin
+                branch = portA != portB; // NE
+              end
+            3'b100: // BLT
+              begin
+                branch = $signed(portA) < $signed(portB); // LT
+              end
+            3'b101: // BGE
+              begin
+                branch = $signed(portA) >= $signed(portB); // GE
+              end
+            3'b110: // BLTU
+              begin
+                branch = portA < portB; // LTU
+              end
+            3'b111: // BGEU
+              begin
+                branch = portA >= portB; // GEU
+              end
+            default:
+              begin
+                branch = 1'b0;
+              end
+          endcase
+        end
+      7'b0000011: // Memory Load instructions
+        begin
+          case (func3)
+            3'b000: // LB
+              begin
+                RegWrite   = 1'b1;  // Write to register rd
+                memRead    = 1'b1;  // Read from Data Memory
+                memNoBytes = 2'd0;  // Load Single Byte
+                aluop      = 5'd0;  // ADD
+                busWSel    = 2'd1;  // store memory result
+                portBSrc   = 2'd1;  // I-Immediate
+              end
+            3'b001: // LH
+              begin
+                RegWrite   = 1'b1;  // Write to register rd
+                memRead    = 1'b1;  // Read from Data Memory
+                memNoBytes = 2'd1;  // Load Two Bytes
+                aluop      = 5'd0;  // ADD
+                busWSel    = 2'd1;  // store memory result
+                portBSrc   = 2'd1;  // I-Immediate
+              end
+            3'b010: // LW
+              begin
+                RegWrite   = 1'b1;  // Write to register rd
+                memRead    = 1'b1;  // Read from Data Memory
+                memNoBytes = 2'd2;  // Load Four Bytes
+                aluop      = 5'd0;  // ADD
+                busWSel    = 2'd1;  // store memory result
+                portBSrc   = 2'd1;  // I-Immediate
+              end
+            3'b100: // LBU
+              begin
+                RegWrite   = 1'b1;  // Write to register rd
+                memRead    = 1'b1;  // Read from Data Memory
+                memNoBytes = 2'd0;  // Load Single Byte
+                aluop      = 5'd0;  // ADD
+                busWSel    = 2'd1;  // store memory result
+                portBSrc   = 2'd1;  // I-Immediate
+              end
+            3'b101: // LHU
+              begin
+                RegWrite   = 1'b1;  // Write to register rd
+                memRead    = 1'b1;  // Read from Data Memory
+                memNoBytes = 2'd1;  // Load Two Bytes
+                aluop      = 5'd0;  // ADD
+                busWSel    = 2'd1;  // store memory result
+                portBSrc   = 2'd1;  // I-Immediate
+              end
+            default:
+              begin
+                RegWrite   = 1'b0;
+                memRead    = 1'b0;
+              end
+          endcase
+        end
+      7'b0100011: // Memory Store instructions
+        begin
+          case (func3)
+            3'b000: // SB
+              begin
+                memWrite   = 1'b1;  // Write to Data Memory
+                memNoBytes = 2'd0;  // Store Single Byte
+                aluop      = 5'd0;  // ADD
+                portBSrc   = 2'd2;  // S-Immediate
+              end
+            3'b001: // SH
+              begin
+                memWrite   = 1'b1;  // Write to Data Memory
+                memNoBytes = 2'd1;  // Store Two Bytes
+                aluop      = 5'd0;  // ADD
+                portBSrc   = 2'd2;  // S-Immediate
+              end
+            3'b010: // SW
+              begin
+                memWrite   = 1'b1;  // Write to Data Memory
+                memNoBytes = 2'd2;  // Store Four Bytes
+                aluop      = 5'd0;  // ADD
+                portBSrc   = 2'd2;  // S-Immediate
+              end
+            default:
+              begin
+                memWrite   = 1'b0;
+              end
+          endcase
+        end
+      7'b0010011: // I-Type Instructions
+        begin
+          case (func3)
+            3'b000: // ADDI
+            begin
+              aluop      = 5'd0;  // ADD
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b010: // SLTI
+            begin
+              aluop      = 5'd2;  // SLT
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b011: // SLTIU
+            begin
+              aluop      = 5'd3;  // SLTU
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b100: // XORI
+            begin
+              aluop      = 5'd6;  // XOR
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b110: // ORI
+            begin
+              aluop      = 5'd5;  // OR
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b111: // ANDI
+            begin
+              aluop      = 5'd4;  // AND
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b001: // SLLI
+            begin
+              aluop      = 5'd7;  // SLL
+              portBSrc   = 2'd1;  // pass I-Immediate
+              RegWrite   = 1'b1;  // Write to register rd
+            end
+            3'b101: // SRLI/SRAI
+            begin
+              if (func7 == 7'd0) begin
+                // SRLI
+                aluop      = 5'd8;  // SRL
+                portBSrc   = 2'd1;  // pass I-Immediate
+                RegWrite   = 1'b1;  // Write to register rd
+              end
+              else begin
+                // SRAI
+                aluop      = 5'd9;  // SRA
+                portBSrc   = 2'd1;  // pass I-Immediate
+                RegWrite   = 1'b1;  // Write to register rd
+              end
+            end
+          endcase
+        end
+      7'b0110011: // R-Type Instructions
+        begin
+          if (func7 == 7'b0000001) begin // M-Extension
+            case (func3)
+              3'b000: // MUL
+                begin
+                  aluop       = 5'd10; // MUL
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for mul
+                  stallCycles = 4'd3;  // stall for 3 cycles
+                end
+              3'b001: // MULH
+                begin
+                  aluop       = 5'd11; // MULH
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for mul
+                  stallCycles = 4'd3;  // stall for 3 cycles
+                end
+              3'b010: // MULHSU
+                begin
+                  aluop       = 5'd13; // MULHSU
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for mul
+                  stallCycles = 4'd3;  // stall for 3 cycles
+                end
+              3'b011: // MULHU
+                begin
+                  aluop       = 5'd12; // MULHU
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for mul
+                  stallCycles = 4'd3;  // stall for 3 cycles
+                end
+              3'b100: // DIV
+                begin
+                  aluop       = 5'd14; // DIV
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for div
+                  stallCycles = 4'd11;  // stall for 11 cycles
+                end
+              3'b101: // DIVU
+                begin
+                  aluop       = 5'd15; // DIVU
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for div
+                  stallCycles = 4'd11;  // stall for 11 cycles
+                end
+              3'b110: // REM
+                begin
+                  aluop       = 5'd16; // REM
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for div
+                  stallCycles = 4'd11;  // stall for 11 cycles
+                end
+              3'b111: // REMU
+                begin
+                  aluop       = 5'd17; // REMU
+                  RegWrite    = 1'b1;  // Write to register rd
+                  stallALU    = 1'b1;  // Stall system for div
+                  stallCycles = 4'd11;  // stall for 11 cycles
+                end
+            endcase
+          end
+          else begin
+            case (func3)
+              3'b000: // ADD/SUB
+                begin
+                  if (func7 == 7'd0) begin
+                      // ADD
+                    aluop      = 5'd0;  // ADD
+                    RegWrite   = 1'b1;  // Write to register rd
+                    stallALU    = 1'b0;
+                    stallCycles = 4'd0;
+                  end
+                  else begin
+                      // SUB
+                    aluop      = 5'd1;  // SUB
+                    RegWrite   = 1'b1;  // Write to register rd
+                    stallALU    = 1'b0;
+                    stallCycles = 4'd0;
+                  end
+                end
+              3'b010: // SLT
+                begin
+                  aluop      = 5'd2;  // SLT
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b011: // SLTU
+                begin
+                  aluop      = 5'd3;  // SLTU
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b100: // XORI
+                begin
+                  aluop      = 5'd6;  // XOR
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b110: // OR
+                begin
+                  aluop      = 5'd5;  // OR
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b111: // AND
+                begin
+                  aluop      = 5'd4;  // AND
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b001: // SLL
+                begin
+                  aluop      = 5'd7;  // SLL
+                  RegWrite   = 1'b1;  // Write to register rd
+                  stallALU    = 1'b0;
+                  stallCycles = 4'd0;
+                end
+              3'b101: // SRL/SRA
+                begin
+                  if (func7 == 7'd0) begin
+                      // SRL
+                    aluop      = 5'd8;  // SRL
+                    RegWrite   = 1'b1;  // Write to register rd
+                    stallALU    = 1'b0;
+                    stallCycles = 4'd0;
+                  end
+                  else begin
+                      // SRA
+                    aluop      = 5'd9;  // SRA
+                    RegWrite   = 1'b1;  // Write to register rd
+                    stallALU    = 1'b0;
+                    stallCycles = 4'd0;
+                  end
+                end
+            endcase
+          end
+        end
+      default:
+        begin
+          RegWrite    = 1'b0;
+          portBSrc    = 2'd0;
+          aluop       = 5'd0;
+          memRead     = 1'b0;
+          memWrite    = 1'b0;
+          memNoBytes  = 2'd0;
+          auipc       = 1'b0;
+          jal         = 1'b0;
+          jalr        = 1'b0;
+          branch      = 1'b0;
+          busWSel     = 2'd0;
+          stallALU    = 1'b0;
+          stallCycles = 4'd0;
+        end
+    endcase
+  end
+endmodule: ControlUnit
+
+module DataMemory #(
+    parameter int DMSIZE=1024,
+    parameter int BASEADDRESS = 32'h0000_0000
+) (
+    // AXI4-Lite Slave Interface
+    input  logic ACLK,
+    input  logic RDSTB,
+    input  logic WRSTB,
+    input  logic [31:0] ADDR,
+    input  logic [31:0] DATA_I,
+    output logic [31:0] DATA_O
+);
+  logic [31:0] mem[0:DMSIZE-1];
+  always_ff @(posedge ACLK) begin
+    if (RDSTB == 1'b1 && ADDR >= BASEADDRESS && ADDR < (BASEADDRESS + DMSIZE)) begin
+      DATA_O <= mem[ADDR];
+    end
+    else begin
+      DATA_O <= 32'dz;
+    end
+    if (WRSTB == 1'b1 && ADDR >= BASEADDRESS && ADDR < (BASEADDRESS + DMSIZE)) begin
+      mem[ADDR] <= DATA_I;
+    end
+  end
+endmodule: DataMemory
+
+module ForwardingUnit (
+    input  logic [04:00] rs1,
+    input  logic [04:00] rs2,
+    input  logic [04:00] rd3,
+    input  logic [04:00] rd4,
+    input  logic [04:00] rd5,
+    input  logic         regWrite3,
+    input  logic         regWrite4,
+    input  logic         regWrite5,
+    input  logic         memRead3,
+    output logic [01:00] forwardA,
+    output logic [01:00] forwardB,
+    output logic         stall
+);
+  always_comb begin
+    if (rs1 != 5'd0 && rs1 == rd3 && regWrite3 == 1'b1) begin
+      forwardA = 2'd1;
+    end
+    else if (rs1 != 5'd0 && rs1 == rd4 && regWrite4 == 1'b1) begin
+      forwardA = 2'd2;
+    end
+    else if (rs1 != 5'd0 && rs1 == rd5 && regWrite5 == 1'b1) begin
+      forwardA = 2'd3;
+    end
+    else begin
+      forwardA = 2'd0;
+    end
+    if (rs2 != 5'd0 && rs2 == rd3 && regWrite3 == 1'b1) begin
+      forwardB = 2'd1;
+    end
+    else if (rs2 != 5'd0 && rs2 == rd4 && regWrite4 == 1'b1) begin
+      forwardB = 2'd2;
+    end
+    else if (rs2 != 5'd0 && rs2 == rd5 && regWrite5 == 1'b1) begin
+      forwardB = 2'd3;
+    end
+    else begin
+      forwardB = 2'd0;
+    end
+    if (memRead3 == 1'b1 && (forwardA == 2'd1 || forwardB == 2'd1)) begin
+      stall = 1'b1;
+    end
+    else begin
+      stall = 1'b0;
+    end
+  end
+endmodule: ForwardingUnit
+
+module GPIO #(
+  parameter int BASEADDRESS = 32'h8000_0000,
+  parameter int NOREGISTERS = 32'h0000_0004
+) (
+  input       logic         ACLK,
+  input       logic         RESET,
+  input       logic [31:00] DATA_I,
+  output      logic [31:00] DATA_O,
+  input       logic [31:00] ADDR,
+  input       logic         WRSTB,
+  input       logic         RDSTB,
+  //////////// LED //////////
+  output      logic [08:00] LEDG,
+  output      logic [17:00] LEDR,
+  //////////// SW //////////
+  input       logic [17:00] SW,
+    //////////// SEG7 //////////
+  output		  logic [06:00]	HEX0,
+  output		  logic [06:00] HEX1,
+  output		  logic [06:00] HEX2,
+  output		  logic [06:00] HEX3,
+  output		  logic [06:00] HEX4,
+  output		  logic [06:00] HEX5,
+  output		  logic [06:00] HEX6,
+  output		  logic [06:00] HEX7
+);
+
+  logic [31:00] gpio_registers[00:NOREGISTERS-1];
+
+  assign LEDG = gpio_registers[0][08:00];
+  assign LEDR = gpio_registers[0][26:09];
+
+  assign HEX0 = gpio_registers[2][06:00];
+  assign HEX1 = gpio_registers[2][14:08];
+  assign HEX2 = gpio_registers[2][22:16];
+  assign HEX3 = gpio_registers[2][30:24];
+  assign HEX4 = gpio_registers[3][06:00];
+  assign HEX5 = gpio_registers[3][14:08];
+  assign HEX6 = gpio_registers[3][22:16];
+  assign HEX7 = gpio_registers[3][30:24];
+
+  always_ff @(posedge ACLK or posedge RESET) begin: updateGPIORegs
+    if (RESET == 1'b1) begin
+      for (int i=0; i<NOREGISTERS; ++i) begin
+        gpio_registers[i] <= 32'd0;
+      end
+    end
+   else begin
+     if (WRSTB == 1'b1 && ADDR >= BASEADDRESS && ADDR < (BASEADDRESS + NOREGISTERS)) begin
+      gpio_registers[ADDR[03:00]] <= DATA_I;
+     end
+     else begin
+       gpio_registers[1] <= SW;
+     end
+     if (RDSTB == 1'b1 && ADDR >= BASEADDRESS && ADDR < (BASEADDRESS + NOREGISTERS)) begin
+      DATA_O <= gpio_registers[ADDR[03:00]];
+     end
+     else begin
+      DATA_O <= 32'dz;
+     end
+   end
+  end: updateGPIORegs
+
+endmodule: GPIO
+
+module InstructionMemory #(
+    parameter int    IMSIZE=1024,
+    parameter        INIT_F="im.hex"
+) (
+    input  logic clk,
+    input  logic [31:0] address,
+    output logic [31:0] instruction
+);
+  // (* ram_init_file = "im.mif" *)
+  logic [31:0] mem[0:IMSIZE-1];
+
+  initial begin
+    if (INIT_F != 0) begin
+      $display("Creating instruction memory from init file '%s'.", INIT_F);
+      $readmemh(INIT_F, mem);
+    end
+    else begin
+      $display("Memory is not initialized");
+    end
+  end
+
+  always_comb begin
+    instruction = mem[address >> 2];
+  end
+
+endmodule
+
+module LCD #(
+    parameter int BASEADDRESS = 32'h5000_0000
+
+) (
+    input logic         ACLK,
+    input logic         RESET,
+    input logic [31:00] DATA_I,
+    input logic [31:00] ADDR,
+    input logic         WRSTB,
+
+    //////////// LCD //////////
+    output logic              LCD_BLON,
+    inout  wire logic [07:00] LCD_DATA,
+    output logic              LCD_EN,
+    output logic              LCD_ON,
+    output logic              LCD_RS,    // 0 = command, 1 = data
+    output logic              LCD_RW     // 0 = write  , 1 = read
+);
+  // registered LCD data
+  logic [07:00] data;
+  // registered enable bit
+  logic         enable;
+  // registered RS bit
+  logic         rs;
+  // write enable register
+  logic         we;
+  // counter value for the delay
+  logic [16:00] counter;
+
+  typedef enum bit [1:0] {
+    IDLE,
+    SEND_COMMAND,
+    SEND_DATA,
+    DELAY
+  } state;
+  state currState, nextState;
+
+  // Backlight Display always ON
+  assign LCD_BLON = 1'b1;
+  // Display is always ON
+  assign LCD_ON   = 1'b1;
+  // We always write to display
+  assign LCD_RW   = 1'b0;
+  // connect LCD_output to register
+  assign LCD_DATA = data;
+  // connect LCD enable register
+  assign LCD_EN   = enable;
+  // connect LCD RS register
+  assign LCD_RS   = rs;
+
+
+
+  // Current state registers
+  always_ff @(posedge ACLK or posedge RESET) begin : currStateRegs
+    if (RESET == 1) begin
+      currState <= IDLE;
+    end else begin
+      currState <= nextState;
+    end
+  end : currStateRegs
+
+  // next state logic
+  always_comb begin : nextStateLogic
+    nextState = currState;  // default is to stay in current state
+    we = 0;
+    case (currState)
+      IDLE: begin
+        if (WRSTB && (ADDR >= BASEADDRESS) && (ADDR <= BASEADDRESS + 1)) begin
+          we = 1;
+          if (ADDR[0] == 1'b0) begin
+            nextState = SEND_COMMAND;
+          end else begin
+            nextState = SEND_DATA;
+          end
+        end
+      end
+      SEND_COMMAND: begin
+        nextState = DELAY;
+      end
+      SEND_DATA: begin
+        nextState = DELAY;
+      end
+      DELAY: begin
+        if (counter == 'd0) begin
+          nextState = IDLE;
+        end else begin
+          nextState = DELAY;
+        end
+      end
+      default: begin
+        nextState = IDLE;
+      end
+    endcase
+  end : nextStateLogic
+
+  // updating lcd data, enable, and rs registers
+  always_ff @(posedge ACLK or posedge RESET) begin : regsUpdate
+    if (RESET == 1) begin
+      data    <= 8'd0;
+      enable  <= 1'd0;
+      rs      <= 1'd0;
+      counter <= 17'd0;
+    end else begin
+      if (we == 1'b1) begin
+        data <= DATA_I[07:00];
+      end
+      if (currState == SEND_COMMAND || currState == SEND_DATA || currState == DELAY) begin
+        enable <= 1'b1;
+      end else begin
+        enable <= 1'b0;
+      end
+      if (currState == SEND_COMMAND) begin
+        rs <= 1'd0;
+      end else if (currState == SEND_DATA) begin
+        rs <= 1'd1;
+      end
+      if (currState == SEND_COMMAND || currState == SEND_DATA) begin
+        counter <= 17'd100000;  // 1 ms for 50 MHz
+      end else if (currState == DELAY) begin
+        counter <= counter - 17'd1;
+      end
+    end
+  end : regsUpdate
+
+endmodule : LCD
+
+module RS232 #(
+  parameter int BASEADDRESS = 32'h6000_0000,
+  // Register 0 for TX (Write only)
+  // Register 1 for RX (Read only)
+  parameter int CLOCK_FREQ  = 50_000_000,
+  parameter int BAUD_RATE   = 115200,
+  parameter int FIFO_WIDTH  = 64
+) (
+  input       logic         ACLK,
+  input       logic         RESET,
+  input       logic [31:00] DATA_I,
+  output      logic [31:00] DATA_O,
+  input       logic [31:00] ADDR,
+  input       logic         WRSTB,
+  input       logic         RDSTB,
+  //////////// RS232 //////////
+  input 		  logic     		UART_CTS,
+  output		  logic     		UART_RTS,
+  input 		  logic     		UART_RXD,
+  output		  logic     		UART_TXD
+);
+  // fifo buffer for rx data
+  logic [07:00] fifo_rx [0:FIFO_WIDTH-1];
+
+  // addresses for the read and write heads of the rx fifo
+  logic [$clog2(FIFO_WIDTH)-1:00] fifo_rx_read_addr;
+  logic [$clog2(FIFO_WIDTH)-1:00] fifo_rx_write_addr;
+
+  // number of valid words (8-bit) in the rx fifo
+  logic [$clog2(FIFO_WIDTH)  :00] fifo_rx_len;
+
+  // fifo buffer for tx data
+  logic [07:00] fifo_tx [0:FIFO_WIDTH-1];
+
+  // addresses for the read and write heads of the tx fifo
+  logic [$clog2(FIFO_WIDTH)-1:00] fifo_tx_read_addr;
+  logic [$clog2(FIFO_WIDTH)-1:00] fifo_tx_write_addr;
+
+  // number of valid words (8-bit) in the tx fifo
+  logic [$clog2(FIFO_WIDTH)  :00] fifo_tx_len;
+
+  // register to hold the read data
+  logic [07:00] RX_DATA;
+  // register to hold the read data valid bit
+  logic         RX_DATA_VALID;
+  // register to hold the read command bit
+  logic         RX_DATA_READ;
+
+  // register to hold the write data
+  logic [07:00] TX_DATA;
+  // register to hold the write data valid bit
+  logic         TX_DATA_VALID;
+  // register to hold the write command bit
+  logic         TX_DATA_READ;
+  // register to hold whether the TX module is Idle or not
+  logic         TX_IDLE;
+
+  // assign UART_RTS = fifo_tx_len > 'd0;
+
+  UART_RX rx (
+    .ACLK(ACLK),
+    .RESET(RESET),
+    .RXD(UART_RXD),
+    .RX_DATA_READ(RX_DATA_READ),
+    .RX_DATA(RX_DATA),
+    .RX_DATA_VALID(RX_DATA_VALID)
+  );
+
+  UART_TX tx (
+    .ACLK(ACLK),
+    .RESET(RESET),
+    .TXD(UART_TXD),
+    .TX_DATA_READ(TX_DATA_READ),
+    .TX_DATA(TX_DATA),
+    .TX_DATA_VALID(TX_DATA_VALID),
+    .UART_CTS(UART_CTS),
+    .UART_RTS(UART_RTS),
+    .TX_IDLE(TX_IDLE)
+  );
+
+
+
+  // push data to the read fifo and update the write address
+  // pop data from the read fifo and update the read address
+  always_ff @(posedge ACLK or posedge RESET) begin : readRXData
+    if (RESET == 1) begin
+      fifo_rx_write_addr  <= 'd0;
+      fifo_rx_read_addr   <= 'd0;
+      RX_DATA_READ        <= 1'd0;
+      fifo_rx_len         <= 'd0;
+    end else begin
+      if (RDSTB && (ADDR >= BASEADDRESS) && (ADDR[0] == 1'b1) && fifo_rx_len > 0) begin
+          DATA_O                       <= fifo_rx[fifo_rx_read_addr];
+          fifo_rx_read_addr            <= fifo_rx_read_addr + 6'd1;
+          fifo_rx_len                  <= fifo_rx_len - 7'd1;
+      end
+      else begin
+        DATA_O                         <= 32'dz;
+        if (RX_DATA_VALID == 1'b1 && fifo_rx_len <= FIFO_WIDTH) begin
+          fifo_rx[fifo_rx_write_addr]  <= RX_DATA;
+          fifo_rx_write_addr           <= fifo_rx_write_addr + 6'd1;
+          RX_DATA_READ                 <= 1'd1;
+          fifo_rx_len                  <= fifo_rx_len + 7'd1;
+        end
+        else begin
+          RX_DATA_READ                  <= 1'd0;
+        end
+      end
+    end
+  end : readRXData
+
+
+  // push data to the write fifo and update the write address
+  // pop data from the write fifo and update the read address
+  always_ff @(posedge ACLK or posedge RESET) begin : writeTXFIFO
+    if (RESET == 1) begin
+      fifo_tx_write_addr  <= 'd0;
+      fifo_tx_read_addr   <= 'd0;
+      fifo_tx_len         <= 'd0;
+    end else begin
+      if (WRSTB && (ADDR >= BASEADDRESS) && (ADDR[0] == 1'b0) && fifo_tx_len <= FIFO_WIDTH) begin
+        fifo_tx[fifo_rx_write_addr]    <= DATA_I[07:00];
+        fifo_tx_write_addr             <= fifo_tx_write_addr + 6'd1;
+        fifo_tx_len                    <= fifo_tx_len + 7'd1;
+      end
+      else if (TX_IDLE == 1'b1) begin
+        TX_DATA                        <= fifo_tx[fifo_tx_read_addr];
+        TX_DATA_VALID                  <= 1'b1;
+        fifo_tx_read_addr              <= fifo_tx_read_addr + 6'd1;
+        fifo_tx_len                    <= fifo_tx_len - 7'd1;
+      end
+    end
+  end : writeTXFIFO
+
+endmodule
+
+module RV32IM_SOC (
+  input       logic         ACLK,          // global clock
+  input       logic         ARESETN,       // asynchronous reset (active low)
+  //////////// VGA //////////
+  output      logic [07:00] VGA_B,
+  output      logic         VGA_BLANK_N,
+  output      logic         VGA_CLK,
+  output      logic [07:00] VGA_G,
+  output      logic         VGA_HS,
+  output      logic [07:00] VGA_R,
+  output      logic         VGA_SYNC_N,
+  output      logic         VGA_VS,
+  //////////// LED //////////
+  output      logic [08:00] LEDG,
+  output      logic [17:00] LEDR,
+  //////////// SW //////////
+  input       logic [17:00] SW,
+  //////////// SRAM //////////
+  output      logic [19:00] SRAM_ADDR,
+  output      logic         SRAM_CE_N,
+  inout  wire logic [15:00] SRAM_DQ,
+  output      logic         SRAM_LB_N,
+  output      logic         SRAM_OE_N,
+  output      logic         SRAM_UB_N,
+  output      logic         SRAM_WE_N,
+  //////////// SEG7 //////////
+	output		  logic [06:00]	HEX0,
+	output		  logic [06:00] HEX1,
+	output		  logic [06:00] HEX2,
+	output		  logic [06:00] HEX3,
+	output		  logic [06:00] HEX4,
+	output		  logic [06:00] HEX5,
+	output		  logic [06:00] HEX6,
+	output		  logic [06:00] HEX7,
+  //////////// LCD //////////
+	output      logic         LCD_BLON,
+	inout  wire logic [07:00] LCD_DATA,
+	output		  logic         LCD_EN,
+	output      logic         LCD_ON,
+	output      logic         LCD_RS,
+	output      logic         LCD_RW,
+  //////////// RS232 //////////
+  input 		          		UART_CTS,
+  output		          		UART_RTS,
+  input 		          		UART_RXD,
+  output		          		UART_TXD
+);
+
+  logic [31:00] ADDR;
+  logic [31:00] DATA_IN_CPU;
+  logic [31:00] DATA_OUT_CPU;
+  logic WRSTB, RDSTB;
+
+  CPU cpu (
+    .ACLK(ACLK),
+    .RESET(~ARESETN),
+    .ADDR(ADDR),
+    .DATA_I(DATA_IN_CPU),
+    .DATA_O(DATA_OUT_CPU),
+    .WRSTB(WRSTB),
+    .RDSTB(RDSTB)
+  );
+
+  DataMemory dm (
+    .ACLK(ACLK),
+    .ADDR(ADDR),
+    .DATA_I(DATA_OUT_CPU),
+    .DATA_O(DATA_IN_CPU),
+    .WRSTB(WRSTB),
+    .RDSTB(RDSTB)
+  );
+
+  VGA vga (
+    .ACLK(ACLK),
+    .RESET(~ARESETN),
+    .DATA_I(DATA_OUT_CPU),
+    .ADDR(ADDR),
+    .WRSTB(WRSTB),
+    .VGA_HS(VGA_HS),
+    .VGA_VS(VGA_VS),
+    .VGA_CLK(VGA_CLK),
+    .VGA_BLANK_N(VGA_BLANK_N),
+    .VGA_SYNC_N(VGA_SYNC_N),
+    .RED(VGA_R),
+    .GREEN(VGA_G),
+    .BLUE(VGA_B),
+	  //////////// SRAM //////////
+    .SRAM_ADDR(SRAM_ADDR),
+    .SRAM_CE_N(SRAM_CE_N),
+    .SRAM_DQ(SRAM_DQ),
+    .SRAM_LB_N(SRAM_LB_N),
+    .SRAM_OE_N(SRAM_OE_N),
+    .SRAM_UB_N(SRAM_UB_N),
+    .SRAM_WE_N(SRAM_WE_N)
+	);
+
+  GPIO gpio (
+    .ACLK(ACLK),
+    .RESET(~ARESETN),
+    .ADDR(ADDR),
+    .DATA_I(DATA_OUT_CPU),
+    .DATA_O(DATA_IN_CPU),
+    .WRSTB(WRSTB),
+    .RDSTB(RDSTB),
+    .LEDR(LEDR),
+    .LEDG(LEDG),
+    .SW(SW),
+	  //////////// SEG7 //////////
+	  .HEX0(HEX0),
+	  .HEX1(HEX1),
+	  .HEX2(HEX2),
+	  .HEX3(HEX3),
+	  .HEX4(HEX4),
+	  .HEX5(HEX5),
+	  .HEX6(HEX6),
+	  .HEX7(HEX7)
+  );
+
+  LCD lcd (
+    .ACLK(ACLK),
+    .RESET(~ARESETN),
+    .ADDR(ADDR),
+    .DATA_I(DATA_OUT_CPU),
+    .WRSTB(WRSTB),
+    .LCD_BLON(LCD_BLON),
+    .LCD_DATA(LCD_DATA),
+    .LCD_EN(LCD_EN),
+    .LCD_ON(LCD_ON),
+    .LCD_RS(LCD_RS),
+    .LCD_RW(LCD_RW)
+  );
+
+  RS232 rs232 (
+    .ACLK(ACLK),
+    .RESET(~ARESETN),
+    .ADDR(ADDR),
+    .DATA_I(DATA_OUT_CPU),
+    .DATA_O(DATA_IN_CPU),
+    .WRSTB(WRSTB),
+    .RDSTB(RDSTB),
+    //////////// RS232 //////////
+    .UART_CTS(UART_CTS),
+    .UART_RTS(UART_RTS),
+    .UART_RXD(UART_RXD),
+    .UART_TXD(UART_TXD)
+  );
+
+endmodule: RV32IM_SOC
+
+module RegisterFile #(
+    parameter int REG_WIDTH = 32,
+    parameter int REG_COUNT = 32
+) (
+    input  logic clk,
+    input  logic reset,
+    input  logic [$clog2(REG_COUNT)-1:0] rs1,
+    input  logic [$clog2(REG_COUNT)-1:0] rs2,
+    input  logic [$clog2(REG_COUNT)-1:0] rd,
+    input  logic RegWrite,
+    input  logic [REG_WIDTH-1:0] BusW,
+    output logic [REG_WIDTH-1:0] BusA,
+    output logic [REG_WIDTH-1:0] BusB
+);
+  logic [REG_WIDTH-1:0] regs[0:REG_COUNT-1];
+  always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+      regs[00] <= 32'h00000000;
+      regs[01] <= 32'h00000000; // return address (ra)
+      regs[02] <= 32'h7ffffff0; // stack pointer  (sp)
+      regs[03] <= 32'h10000000; // global pointer (gp)
+      regs[04] <= 32'h00000000; // thread pointer (tp)
+      regs[05] <= 32'h00000000; // temp           (t0)
+      regs[06] <= 32'h00000000; // temp           (t1)
+      regs[07] <= 32'h00000000; // temp           (t2)
+      regs[08] <= 32'h00000000;
+      regs[09] <= 32'h00000000;
+      regs[10] <= 32'h00000000;
+      regs[11] <= 32'h00000000;
+      regs[12] <= 32'h00000000;
+      regs[13] <= 32'h00000000;
+      regs[14] <= 32'h00000000;
+      regs[15] <= 32'h00000000;
+      regs[16] <= 32'h00000000;
+      regs[17] <= 32'h00000000;
+      regs[18] <= 32'h00000000;
+      regs[19] <= 32'h00000000;
+      regs[20] <= 32'h00000000;
+      regs[21] <= 32'h00000000;
+      regs[22] <= 32'h00000000;
+      regs[23] <= 32'h00000000;
+      regs[24] <= 32'h00000000;
+      regs[25] <= 32'h00000000;
+      regs[26] <= 32'h00000000;
+      regs[27] <= 32'h00000000;
+      regs[28] <= 32'h00000000;
+      regs[29] <= 32'h00000000;
+      regs[30] <= 32'h00000000;
+      regs[31] <= 32'h00000000;
+    end else if (RegWrite && rd != 'd0) begin
+      regs[rd] <= BusW;
+    end
+  end
+
+  always_comb begin
+    BusA = regs[rs1];
+    BusB = regs[rs2];
+  end
+endmodule: RegisterFile
+
+module UART_RX #(
+    parameter int CLOCK_FREQ = 50_000_000,
+    parameter int BAUD_RATE  = 115200
+) (
+    input  logic         ACLK,
+    input  logic         RESET,
+    input  logic         RXD,
+    input  logic         RX_DATA_READ,
+    output logic [07:00] RX_DATA,
+    output logic         RX_DATA_VALID
+);
+  localparam CLOCKS_PER_BIT = CLOCK_FREQ / BAUD_RATE;
+
+  logic [$clog2(CLOCKS_PER_BIT)-1:00] counter;
+  logic         counterReset;
+  logic         counterInc;
+  logic [02:00] bitIndex;
+  logic         bitIndexReset;
+  logic         bitIndexInc;
+  logic         readBit;
+
+  typedef enum logic [02:00] {
+    IDLE,
+    START_BIT,
+    DATA_BITS,
+    VALID_DATA
+  } state;
+
+  state currState, nextState;
+  // Current state registers
+  always_ff @(posedge ACLK or posedge RESET) begin : currStateRegs
+    if (RESET == 1) begin
+      currState <= IDLE;
+    end else begin
+      currState <= nextState;
+    end
+  end : currStateRegs
+
+  // next state logic
+  always_comb begin : nextStateLogic
+    nextState     = currState;  // default is to stay in current state
+    bitIndexReset = 1'b0;
+    bitIndexInc   = 1'b0;
+    counterReset  = 1'b0;
+    counterInc    = 1'b0;
+    readBit       = 1'b0;
+    RX_DATA_VALID = (currState == VALID_DATA);
+    case (currState)
+      IDLE: begin
+        if (RXD == 1'b0) begin
+          nextState     = START_BIT;
+          counterReset  = 1'b1;
+        end
+      end
+      START_BIT: begin
+        if (counter == (CLOCKS_PER_BIT - 1) / 2) begin
+          if (RXD == 1'b0) begin
+            nextState     = DATA_BITS;
+            bitIndexReset = 1'b1;
+            counterReset  = 1'b1;
+          end else begin
+            nextState     = IDLE;
+          end
+        end
+        else begin
+          counterInc      = 1'b1;
+          nextState       = START_BIT;
+        end
+      end
+      DATA_BITS: begin
+        if (bitIndex == 7 && counter == CLOCKS_PER_BIT - 1) begin
+          readBit        = 1'b1;
+          nextState      = VALID_DATA;
+        end
+        else begin
+          if (counter == CLOCKS_PER_BIT - 1) begin
+            readBit      = 1'b1;
+            bitIndexInc  = 1'b1;
+            counterReset = 1'b1;
+          end
+          else begin
+            counterInc   = 1'b1;
+          end
+          nextState      = DATA_BITS;
+        end
+      end
+      VALID_DATA: begin
+        if (RX_DATA_READ == 1'b1) begin
+          nextState = IDLE;
+        end else begin
+          nextState = VALID_DATA;
+        end
+      end
+      default: begin
+        nextState = IDLE;
+      end
+    endcase
+  end : nextStateLogic
+
+  // bitIndex register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateIndexReg
+    if (RESET == 1) begin
+      bitIndex <= 3'd0;
+    end else begin
+      if (bitIndexReset == 1'b1) begin
+        bitIndex <= 3'd0;
+      end
+      else if (bitIndexInc == 1'b1) begin
+        bitIndex <= bitIndex + 3'd1;
+      end
+    end
+  end : updateIndexReg
+
+
+  // counter register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateCounterReg
+    if (RESET == 1) begin
+      counter <= 'd0;
+    end else begin
+      if (counterReset == 1'b1) begin
+        counter <= 'd0;
+      end
+      else if (counterInc == 1'b1) begin
+        counter <= counter + 9'd1;
+      end
+    end
+  end : updateCounterReg
+
+  // data register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateDataReg
+    if (RESET == 1) begin
+      RX_DATA <= 8'd0;
+    end else begin
+      if (readBit == 1'b1) begin
+        RX_DATA[bitIndex] <= RXD;
+      end
+    end
+  end : updateDataReg
+
+endmodule
+module UART_TX #(
+    parameter int CLOCK_FREQ = 50_000_000,
+    parameter int BAUD_RATE  = 115200
+) (
+    input  logic         ACLK,
+    input  logic         RESET,
+    output logic         TXD,
+    output logic         TX_DATA_READ,
+    input  logic [07:00] TX_DATA,
+    input  logic         TX_DATA_VALID,
+    input  logic         UART_CTS,
+    output logic         UART_RTS,
+    output logic         TX_IDLE
+);
+  localparam CLOCKS_PER_BIT = CLOCK_FREQ / BAUD_RATE;
+
+  logic [$clog2(CLOCKS_PER_BIT)-1:00] counter;
+  logic         counterReset;
+  logic         counterInc;
+  logic [02:00] bitIndex;
+  logic         bitIndexReset;
+  logic         bitIndexInc;
+  logic         writeBit;
+  logic [07:00] TX_DATA_REG;
+
+  typedef enum logic [02:00] {
+    IDLE,
+    WAIT_FOR_CTS,
+    START_BIT,
+    DATA_BITS
+  } state;
+
+  state currState, nextState;
+  // Current state registers
+  always_ff @(posedge ACLK or posedge RESET) begin : currStateRegs
+    if (RESET == 1) begin
+      currState <= IDLE;
+    end else begin
+      currState <= nextState;
+    end
+  end : currStateRegs
+
+  // next state logic
+  always_comb begin : nextStateLogic
+    nextState     = currState;  // default is to stay in current state
+    bitIndexReset = 1'b0;
+    bitIndexInc   = 1'b0;
+    counterInc    = 1'b0;
+    counterReset  = 1'b0;
+    writeBit      = 1'b0;
+    TX_DATA_READ  = 1'b0;
+    TX_IDLE       = 1'b0;
+	 UART_RTS      = 1'b0;
+    case (currState)
+      IDLE: begin
+        if (TX_DATA_VALID == 1'b1) begin
+          nextState     = WAIT_FOR_CTS;
+          counterReset  = 1'b1;
+          TX_DATA_READ  = 1'b1;
+          TX_IDLE       = 1'b1;
+          UART_RTS      = 1'b1;
+        end
+      end
+      WAIT_FOR_CTS: begin
+        if (UART_CTS == 1'b1) begin
+          nextState = START_BIT;
+        end else begin
+          nextState = WAIT_FOR_CTS;
+			 UART_RTS  = 1'b1;
+        end
+      end
+      START_BIT: begin
+        if (counter == (CLOCKS_PER_BIT - 1)) begin
+          counterReset  = 1'b1;
+          bitIndexReset = 1'b1;
+          nextState     = DATA_BITS;
+        end
+        else begin
+          counterInc    = 1'b1;
+          nextState     = START_BIT;
+        end
+      end
+      DATA_BITS: begin
+        writeBit      = 1'b1;
+        if (bitIndex == 7 && counter == CLOCKS_PER_BIT - 1) begin
+          nextState       = IDLE;
+        end
+        else begin
+          if (counter == CLOCKS_PER_BIT - 1) begin
+            bitIndexInc   = 1'b1;
+            counterReset  = 1'b1;
+          end
+          else begin
+            counterInc    = 1'b1;
+          end
+          nextState      = DATA_BITS;
+        end
+      end
+      default: begin
+        nextState = IDLE;
+      end
+    endcase
+  end : nextStateLogic
+
+  // bitIndex register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateIndexReg
+    if (RESET == 1) begin
+      bitIndex <= 3'd0;
+    end else begin
+      if (bitIndexReset == 1'b1) begin
+        bitIndex <= 3'd0;
+      end
+      else if (bitIndexInc == 1'b1) begin
+        bitIndex <= bitIndex + 3'd1;
+      end
+    end
+  end : updateIndexReg
+
+
+  // counter register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateCounterReg
+    if (RESET == 1) begin
+      counter <= 'd0;
+    end else begin
+      if (counterReset == 1'b1) begin
+        counter <= 'd0;
+      end
+      else if (counterInc == 1'b1) begin
+        counter <= counter + 9'd1;
+      end
+    end
+  end : updateCounterReg
+
+  // TXD output
+  always_ff @(posedge ACLK or posedge RESET) begin : updateTXD
+    if (RESET == 1) begin
+      TXD <= 1'd1;
+    end else begin
+      if (currState == START_BIT) begin
+        TXD <= 1'd0;
+      end
+      else if (writeBit == 1'b1) begin
+        TXD <= TX_DATA_REG[bitIndex];
+      end
+      else begin
+        TXD <= 1'd1;
+      end
+    end
+  end : updateTXD
+
+  // data register
+  always_ff @(posedge ACLK or posedge RESET) begin : updateDataReg
+    if (RESET == 1) begin
+      TX_DATA_REG <= 8'd0;
+    end else begin
+      if (TX_DATA_READ == 1'b1) begin
+        TX_DATA_REG <= TX_DATA;
+      end
+    end
+  end : updateDataReg
+
+endmodule
+
+//  Project: RISC-V CPU (RV32IM)
+//  Module : VGA
+//  Author : Saleh AlSaleh
+module VGA #(
+  parameter int WidthPixels  = 640, // c
+  parameter int HFrontPorch  = 16,  // d
+  parameter int HSyncPulse   = 96,  // a
+  parameter int HBackPorch   = 48,  // b
+  parameter int HeightPixels = 480, // c
+  parameter int VFrontPorch  = 10,  // d
+  parameter int VSyncPulse   = 2,   // a
+  parameter int VBackPorch   = 33,  // b
+  parameter int BASEADDRESS  = 32'h4000_0000
+  // 	Pixel Frequency should be 25.175 MHz
+)(
+  input       logic         ACLK,
+  input       logic         RESET,
+  input       logic [31:00] DATA_I,
+  input       logic [31:00] ADDR,
+  input       logic         WRSTB,
+  output      logic         VGA_HS,
+  output      logic         VGA_VS,
+  output      logic         VGA_CLK,
+  output      logic         VGA_BLANK_N,
+  output      logic         VGA_SYNC_N,
+  output      logic [07:00] RED,
+  output      logic [07:00] GREEN,
+  output      logic [07:00] BLUE,
+  //////////// SRAM //////////
+  output      logic [19:00] SRAM_ADDR,
+  output      logic         SRAM_CE_N,
+  inout  wire logic [15:00] SRAM_DQ,
+  output      logic         SRAM_LB_N,
+  output      logic         SRAM_OE_N,
+  output      logic         SRAM_UB_N,
+  output      logic         SRAM_WE_N
+);
+  //  timeunit 1ns / 1ps;
+  localparam int WholeLine = WidthPixels + HFrontPorch + HSyncPulse + HBackPorch;
+  localparam int WholeFrame = HeightPixels + VFrontPorch + VSyncPulse + VBackPorch;
+  logic [19:00] lADDR;
+
+  // SRAM signals
+  logic [19:00] sram_local_address;
+  logic [15:00] sram_din;
+  logic [15:00] sram_dout;
+  logic [01:00] sram_byteenable;
+  logic         sram_read;
+  logic 			 sram_write;
+  logic         sram_dout_valid;
+
+  logic pixel_clk;
+  logic displayTime;
+  logic [$clog2(WholeLine)-1:0] h_pixel_counter;
+  logic [$clog2(WholeFrame)-1:0] v_pixel_counter;
+ 
+  assign sram_byteenable    = 2'd3; // always enable both bytes
+
+  assign VGA_CLK     = pixel_clk;
+  assign VGA_SYNC_N  = displayTime;
+  assign VGA_BLANK_N = displayTime;
+
+  assign RED         = (sram_dout_valid) ? {sram_dout[04:00], 3'd0} : 8'd0;
+  assign GREEN       = (sram_dout_valid) ? {sram_dout[09:05], 3'd0} : 8'd0;
+  assign BLUE        = (sram_dout_valid) ? {sram_dout[14:10], 3'd0} : 8'd0;
+
+  pll vga_pll_u0 (
+    .reset_reset(RESET),
+    .clk_clk(ACLK),
+    .c0_clk(pixel_clk)
+  );
+
+  sram vga_sram  (
+    .clk_clk               (ACLK),                  // clk.clk
+    .reset_reset           (RESET),                 // reset.reset
+    .sram_DQ               (SRAM_DQ),               // sram.DQ
+    .sram_ADDR             (SRAM_ADDR),             // .ADDR
+    .sram_LB_N             (SRAM_LB_N),             // .LB_N
+    .sram_UB_N             (SRAM_UB_N),             // .UB_N
+    .sram_CE_N             (SRAM_CE_N),             // .CE_N
+    .sram_OE_N             (SRAM_OE_N),             // .OE_N
+    .sram_WE_N             (SRAM_WE_N),             // .WE_N
+    .sram_io_address       (sram_local_address),    // sram_io.address
+    .sram_io_byteenable    (sram_byteenable),       // .byteenable
+    .sram_io_read          (sram_read),             // .read
+    .sram_io_write         (sram_write),            // .write
+    .sram_io_writedata     (sram_din),              // .writedata
+    .sram_io_readdata      (sram_dout),             // .readdata
+    .sram_io_readdatavalid (sram_dout_valid)        // .readdatavalid
+  );
+
+
+  always_ff @(posedge ACLK or posedge RESET) begin : driveSRAM
+    if (RESET == 1'b1) begin
+      sram_write         <= 'd0;
+      sram_din           <= 'd0;
+      sram_local_address <= 'd0;
+      sram_read          <= 'd0;
+    end
+    else begin
+      if (WRSTB && (ADDR >= BASEADDRESS) && (ADDR <= BASEADDRESS + (WidthPixels + HeightPixels))) begin
+        sram_write         <= 1'b1;
+        sram_local_address <= ADDR[15:00];
+      end
+      else begin
+        sram_local_address <= lADDR;
+        sram_read          <= displayTime;
+      end    
+      sram_din    <= DATA_I[15:00];
+    end
+  end: driveSRAM
+
+  always_ff @(posedge pixel_clk or posedge RESET) begin : driveSyncs
+    if (RESET == 1'b1) begin
+      VGA_HS       <= 'd0;
+      VGA_VS       <= 'd0;
+      displayTime  <= 'd0;
+    end
+    else begin
+      VGA_HS      <= ~((h_pixel_counter >= (WidthPixels + HFrontPorch)) &&
+                         (h_pixel_counter < (WidthPixels + HFrontPorch + HSyncPulse)));
+      VGA_VS      <= ~((v_pixel_counter >= (HeightPixels + VFrontPorch)) &&
+                         (v_pixel_counter < (HeightPixels + VFrontPorch + VSyncPulse)));
+      displayTime <= (h_pixel_counter < WidthPixels) && (v_pixel_counter < HeightPixels);
+    end
+  end : driveSyncs
+
+
+  always_ff @(posedge pixel_clk or posedge RESET) begin : updateCounters
+    if (RESET == 1'b1) begin
+      h_pixel_counter <= 'd0;
+      v_pixel_counter <= 'd0;
+    end
+    else begin
+      if (h_pixel_counter == WholeLine) begin
+        h_pixel_counter <= 'd0;
+        v_pixel_counter <= v_pixel_counter + 9'd1;
+        if (v_pixel_counter == WholeFrame) begin
+          v_pixel_counter <= 'd0;
+        end
+      end
+      else begin
+        h_pixel_counter <= h_pixel_counter + 10'd1;
+      end
+    end
+  end : updateCounters
+
+
+  always_ff @(posedge pixel_clk or posedge RESET) begin : updateReadAddress
+    if (RESET == 1'b1) begin
+     lADDR <= 'd0;
+   end
+   else begin
+     if (displayTime == 1'b1) begin
+        lADDR <= lADDR + 16'd1;
+      end
+   end
+  end : updateReadAddress
+
+endmodule : VGA
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
